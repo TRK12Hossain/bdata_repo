@@ -1,719 +1,1650 @@
-# Bangladesh Content Platform — Revised MVP v3.0
-## Work Breakdown Structure
+# Bangladesh Content Platform — Simplified MVP v4.0
+## Google Cloud-Centric Work Breakdown Structure
 
-> **Version 3.0 changes:** Gemini CLI as agent engine · GitHub Actions as orchestration · Zero GCP infrastructure · GitHub personal repo for version control
-> **Target:** 1 verified post/day · <15 min human time · ~$0/month
-
----
-
-## 🔄 Architecture Reset: What This Version Changes
-
-### The Three Constraints and Their Implications
-
-| Constraint | Old Approach | New Approach | Impact |
-|---|---|---|---|
-| Maximize Gemini CLI | Write Python agent code manually | Write **prompt files** — Gemini CLI does everything else | Eliminates ~14hrs of Python coding |
-| GitHub personal repo | GCS bucket versioning | GitHub = version control + storage + CI/CD | One ecosystem, free, familiar |
-| Cannot create GCP project | Cloud Run + Cloud Scheduler + Cloud Functions | **GitHub Actions** (free compute, no GCP needed) | Zero infrastructure to provision |
-
-### What Just Disappeared from the Stack
-
-- ❌ Digital Ocean / Cloud Run / any VM
-- ❌ Cloud Scheduler
-- ❌ Cloud Functions
-- ❌ GCS buckets (custom)
-- ❌ Secret Manager
-- ❌ Docker / containerization
-- ❌ Writing Python agent code yourself
-- ❌ MCP servers
-- ❌ CrewAI / LiteLLM / Python orchestration framework
-
-### What Remains
-
-- ✅ Gemini CLI (agent engine — does research, writes content, generates chart code)
-- ✅ GitHub Actions (scheduler + compute — runs the pipeline)
-- ✅ GitHub personal repo (version control + pipeline file storage)
-- ✅ GitHub Secrets (API key management)
-- ✅ Google Sheets (topic queue, publication log — Workspace, no new project)
-- ✅ Google Drive (visual asset archive — Workspace, no new project)
-- ✅ Slack (human review interface)
-- ✅ Gemini 2.5 Pro API via work (AI engine — free)
-- ✅ Instagram Graph API (publishing)
+> **Version 4.0 Philosophy:** Maximum Google Cloud Services utilization · GCS bucket as primary storage · GitHub for version control only · No external service accounts · Immediate actionable steps
+> **Target:** 1 verified post/day · <15 min human time · ~$0/month (using company GCP)
 
 ---
 
-## 🧠 How Gemini CLI Changes Your Role
+## 🎯 Architectural Simplification
 
-**Before (v1 & v2):** You are a developer writing Python classes, configuring Docker, managing servers.
+### Key Changes from v3.0
 
-**After (v3):** You are an **editorial director** writing prompt files in plain English/Markdown. Gemini CLI is your employee that reads those files and does the work.
+| Component | v3.0 Approach | v4.0 Approach | Rationale |
+|-----------|---------------|---------------|-----------|
+| **Storage** | GitHub repo files | GCS bucket | Use company's GCP resources |
+| **Orchestration** | GitHub Actions | Cloud Scheduler + Cloud Functions | Native GCP, no external service account risk |
+| **AI Engine** | Gemini CLI | Gemini API (direct) | Already have enterprise access |
+| **Config Management** | Markdown in GitHub | Markdown in GCS + GitHub sync | GCS as source of truth, GitHub for version control |
+| **Secrets** | GitHub Secrets | No secrets needed (service account-free design) | Security requirement |
 
-```
-YOU WRITE:                          GEMINI CLI DOES:
-─────────────────                   ──────────────────────────────────
-prompts/01_research.md    →         Browses BBS, World Bank, UNESCO
-prompts/02_write.md       →         Writes bilingual Bangla-English content
-prompts/03_factcheck.md   →         Fetches source URLs, verifies claims
-prompts/04_stylecheck.md  →         Scores draft against your style guide
-prompts/05_visual.md      →         Writes Python code, generates PNG chart
-scripts/setup.md          →         Writes all the glue scripts (notify Slack, post to IG, etc.)
-```
+### What This Version Optimizes For
 
-You write Markdown. Gemini CLI writes code.
+1. ✅ **Company GCP Resources:** Cloud Functions, Cloud Scheduler, GCS buckets (existing project)
+2. ✅ **Zero Service Accounts:** No credentials for 3rd party services (except Instagram API, which is necessary)
+3. ✅ **Simplified Storage:** Everything in one GCS bucket with clear folder structure
+4. ✅ **GitHub as Backup:** Code and configs versioned, but execution happens in GCP
+5. ✅ **Immediate Start:** No infrastructure provisioning needed (use existing project)
 
 ---
 
-## 🏗️ Complete Architecture
+## 🏗️ Simplified Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  HUMAN LAYER                                         │
-│  Google Sheets → add topics, review published log   │
-│  Slack → receive review package, click Approve       │
-│  GitHub → edit config/prompt files, view pipeline   │
-└──────────────────────────┬──────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  HUMAN LAYER                                             │
+│  • Google Sheets: Topic queue, publication log          │
+│  • Gmail: Review notifications (no Slack needed)         │
+│  • GCS Console: View pipeline outputs                   │
+│  • GitHub: Version control for configs/code             │
+└──────────────────────────┬──────────────────────────────┘
                            │
-┌──────────────────────────▼──────────────────────────┐
-│  ORCHESTRATION LAYER: GitHub Actions                 │
-│  • Cron scheduler (Mon 9am Bangladesh time)          │
-│  • Manual trigger (workflow_dispatch)                │
-│  • Reads topic from Google Sheets                    │
-│  • Runs each Gemini CLI stage in sequence            │
-│  • Commits pipeline outputs to repo                  │
-│  • Sends Slack notifications                         │
-│  • Handles errors and retries                        │
-└──────────────────────────┬──────────────────────────┘
+┌──────────────────────────▼──────────────────────────────┐
+│  ORCHESTRATION LAYER: Cloud Scheduler + Cloud Functions │
+│  • Cloud Scheduler: Daily trigger (9am Bangladesh)      │
+│  • Main Function: Reads Sheets, runs Gemini pipeline    │
+│  • Publish Function: Posts to Instagram when approved   │
+│  • All Python code in functions (no external servers)   │
+└──────────────────────────┬──────────────────────────────┘
                            │
-┌──────────────────────────▼──────────────────────────┐
-│  AI LAYER: Gemini CLI + Gemini 2.5 Pro              │
-│  Stage 1: Research Agent (browses web, reads PDFs)   │
-│  Stage 2: Content Writer (bilingual, style-aware)    │
-│  Stage 3: Fact-Checker (verifies every claim)        │
-│  Stage 4: Style Checker (scores vs style guide)      │
-│  Stage 5: Visual Designer (writes + runs Python)     │
-└──────────────────────────┬──────────────────────────┘
+┌──────────────────────────▼──────────────────────────────┐
+│  AI LAYER: Gemini 2.5 Pro API (Direct)                  │
+│  • Research: Multi-turn conversation with web search    │
+│  • Writing: Style-aware content generation              │
+│  • Fact-check: Source verification                      │
+│  • Visual: Code generation for charts                   │
+│  • All prompts stored as .md files in GCS               │
+└──────────────────────────┬──────────────────────────────┘
                            │
-┌──────────────────────────▼──────────────────────────┐
-│  STORAGE LAYER: GitHub repo                          │
-│  config/     → your Markdown config files           │
-│  prompts/    → Gemini CLI instruction files         │
-│  scripts/    → Gemini-generated helper scripts      │
-│  pipeline/   → per-topic MD outputs + PNG           │
-│  published/  → archive of approved content          │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────▼──────────────────────────────┐
+│  STORAGE LAYER: Single GCS Bucket                       │
+│  gs://[company-bucket]/bd-content/                      │
+│  ├── config/           # Your preference files (.md)    │
+│  ├── prompts/          # Gemini instruction files       │
+│  ├── topics/           # Active topic briefs            │
+│  ├── pipeline/         # Work-in-progress outputs       │
+│  ├── published/        # Approved content archive       │
+│  └── assets/           # Generated images (.png)        │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📁 Repository Structure
+## 📁 GCS Bucket Structure
 
 ```
-bd-content-platform/  (private GitHub personal repo)
+gs://[your-company-bucket]/bd-content/
 │
-├── .github/
-│   └── workflows/
-│       ├── content-pipeline.yml      # Main pipeline (daily trigger)
-│       ├── topic-suggester.yml       # Weekly idea generation (Mon)
-│       └── health-check.yml         # Daily API health ping
-│
-├── config/                           # YOU write these — Gemini CLI reads them
-│   ├── writing_style_profile.md      # Your voice, tone, examples
-│   ├── editorial_preferences.md      # Topic rules, banned topics
-│   ├── visual_identity.md            # Colors, fonts, templates
-│   ├── source_priority.md            # Tier 1/2/3 sources with URLs
+├── config/                           # Configuration files (YOU write, sync from GitHub)
+│   ├── writing_style_profile.md      # 1-2 pages, your voice examples
+│   ├── editorial_preferences.md      # Topics to cover/avoid
+│   ├── visual_identity.md            # Colors, fonts (markdown table format)
+│   ├── source_priority.md            # BBS, World Bank, etc. with URLs
 │   └── fact_check_protocols.md       # Verification rules
 │
-├── prompts/                          # YOU write these — Gemini CLI executes them
-│   ├── 01_research.md               # Research agent instructions
-│   ├── 02_write.md                  # Content writer instructions
-│   ├── 03_factcheck.md              # Fact-checker instructions
-│   ├── 04_stylecheck.md             # Style checker instructions
-│   └── 05_visual.md                 # Visual designer instructions
+├── prompts/                          # Gemini API system prompts (YOU write once)
+│   ├── research_prompt.md            # Instructions for data gathering
+│   ├── writer_prompt.md              # Bilingual content generation rules
+│   ├── factcheck_prompt.md           # Claim verification instructions
+│   ├── stylecheck_prompt.md          # Style scoring criteria
+│   └── visual_prompt.md              # Chart generation specifications
 │
-├── scripts/                          # GEMINI CLI writes these (you prompt it once)
-│   ├── get_next_topic.py             # Reads Google Sheets, gets next approved topic
-│   ├── gate_check.py                 # Evaluates quality gate pass/fail
-│   ├── notify_slack.py               # Sends review package to Slack
-│   ├── publish_instagram.py          # Posts approved content to Instagram
-│   ├── run_visual.py                 # Executes Gemini-generated chart code
-│   └── update_sheets.py              # Updates topic status + logs publication
+├── topics/                           # One file per topic (auto-generated from Sheets)
+│   ├── T001_education_spending.md    # Topic: brief, context, deadline
+│   ├── T002_gdp_growth.md
+│   └── ...
 │
-├── topics/                           # One file per approved topic
-│   └── T001.md                      # Topic brief (created from Sheets data)
+├── pipeline/                         # Pipeline execution outputs (auto-generated)
+│   ├── T001/
+│   │   ├── 01_research.json          # Structured data + sources
+│   │   ├── 02_draft.md               # Bangla-English content
+│   │   ├── 03_factcheck_report.json  # Verification results
+│   │   ├── 04_style_report.json      # Style score + issues
+│   │   ├── 05_chart_code.py          # Matplotlib code
+│   │   └── 06_final_package.json     # Ready for review
+│   └── T002/
+│       └── ...
 │
-├── pipeline/                         # Pipeline outputs (auto-committed per run)
-│   └── T001/
-│       ├── research.md
-│       ├── draft.md
-│       ├── factcheck.md
-│       ├── stylecheck.md
-│       ├── visual_report.md
-│       ├── chart_code.py             # Gemini-generated Matplotlib code
-│       └── instagram.png             # Generated chart (committed to repo)
+├── assets/                           # Generated visual content
+│   ├── T001_chart.png                # Instagram-ready 1080x1080
+│   ├── T002_chart.png
+│   └── ...
 │
-└── published/                        # Approved + published content archive
-    └── T001/
-        ├── final_caption.md
-        └── metadata.md
+└── published/                        # Approved content archive
+    ├── T001/
+    │   ├── caption.md
+    │   ├── image.png
+    │   └── metadata.json             # Post URL, date, engagement
+    └── T002/
+        └── ...
 ```
 
 ---
 
-## 📋 WORK BREAKDOWN STRUCTURE
+## 🛠️ Technology Stack (Simplified)
+
+| Component | Technology | Cost | Why This Choice |
+|-----------|-----------|------|-----------------|
+| **Storage** | GCS Bucket | $0 (existing) | Company resource, no setup needed |
+| **Compute** | Cloud Functions (2nd gen) | ~$0 (free tier: 2M invocations/month) | Serverless, no VM management |
+| **Scheduling** | Cloud Scheduler | ~$0 (free tier: 3 jobs) | Native GCP integration |
+| **AI** | Gemini 2.5 Pro API | $0 (enterprise via work) | Already available |
+| **Database** | Google Sheets API | $0 | Already using Workspace |
+| **Publishing** | Instagram Graph API | $0 | Only external API needed |
+| **Version Control** | GitHub (private repo) | $0 | Code backup only, not execution |
+| **Notifications** | Gmail API | $0 | No Slack needed, Workspace integration |
+
+**Total Monthly Cost:** ~$0 (staying within free tiers)
 
 ---
 
-## PHASE 0 — Accounts & Foundations (2.5 hours)
-
-### 0.1 GitHub Repository
-- [ ] **0.1.1** Create private GitHub repo: `bd-content-platform`
-- [ ] **0.1.2** Clone locally: `git clone https://github.com/YOUR-USERNAME/bd-content-platform`
-- [ ] **0.1.3** Create folder structure:
-  ```bash
-  mkdir -p .github/workflows config prompts scripts topics pipeline published
-  touch .github/workflows/.keep config/.keep prompts/.keep scripts/.keep
-  git add . && git commit -m "Initial structure" && git push
-  ```
-- [ ] **0.1.4** Enable branch protection on `main` (Settings → Branches → Add rule → require PR for pushes) — optional but good practice
-
-### 0.2 GitHub Secrets
-Go to repo → Settings → Secrets and variables → Actions → New repository secret
-
-- [ ] **0.2.1** `GEMINI_API_KEY` — your work Gemini Enterprise API key
-- [ ] **0.2.2** `SLACK_BOT_TOKEN` — from Slack app (set up in 0.4)
-- [ ] **0.2.3** `SLACK_REVIEW_CHANNEL_ID` — Slack channel for review notifications
-- [ ] **0.2.4** `SLACK_ERRORS_CHANNEL_ID` — Slack channel for errors
-- [ ] **0.2.5** `INSTAGRAM_ACCESS_TOKEN` — long-lived token (set up in 0.5)
-- [ ] **0.2.6** `INSTAGRAM_USER_ID` — your Instagram Business account ID
-- [ ] **0.2.7** `GOOGLE_SHEETS_ID` — the ID from your Sheets URL
-- [ ] **0.2.8** `GOOGLE_SERVICE_ACCOUNT_JSON` — service account credentials for Sheets API access (see 0.3)
-
-### 0.3 Google Sheets + Service Account
-- [ ] **0.3.1** Create Google Sheets file: **"BD Content Platform"**
-- [ ] **0.3.2** Create 4 tabs: `Content_Queue`, `Published_Log`, `Error_Log`, `Topic_Suggestions`
-- [ ] **0.3.3** Set up `Content_Queue` headers (Row 1):
-  ```
-  A: Topic_ID | B: Topic_Bangla | C: Topic_English | D: Priority | 
-  E: Context_Notes | F: Deadline | G: Status | H: Sensitivity | I: Dry_Run
-  ```
-- [ ] **0.3.4** Add your first test topic in Row 2 with `Status = Approved`, `Dry_Run = TRUE`
-- [ ] **0.3.5** To access Sheets from GitHub Actions, you need a service account. Use your **existing company GCP project** — just create a service account within it (this doesn't require creating a new project):
-  ```
-  GCP Console → existing project → IAM & Admin → Service Accounts → Create
-  Name: bd-pipeline-sa
-  Role: none needed at project level
-  ```
-- [ ] **0.3.6** Download the service account JSON key
-- [ ] **0.3.7** Share the Google Sheet with the service account email (Editor access)
-- [ ] **0.3.8** Base64-encode the JSON and store in GitHub Secrets as `GOOGLE_SERVICE_ACCOUNT_JSON`
-
-### 0.4 Slack Setup
-- [ ] **0.4.1** Go to **api.slack.com/apps** → Create App → From Scratch → name: `BD Pipeline Bot`
-- [ ] **0.4.2** OAuth & Permissions → Bot Token Scopes: `chat:write`, `files:upload`
-- [ ] **0.4.3** Interactivity & Shortcuts → Enable → set Request URL to: (GitHub Actions webhook URL — fill in Phase 3)
-- [ ] **0.4.4** Install to Workspace → copy Bot User OAuth Token
-- [ ] **0.4.5** Create channels: `#bd-content-review` and `#bd-pipeline-errors`, invite bot to both
-
-### 0.5 Instagram API
-- [ ] **0.5.1** Ensure you have a Facebook Business account linked to your Instagram
-- [ ] **0.5.2** Go to **developers.facebook.com** → My Apps → Create App → Business type
-- [ ] **0.5.3** Add product: Instagram Graph API
-- [ ] **0.5.4** Generate a long-lived access token (valid 60 days)
-- [ ] **0.5.5** Note your Instagram User ID (from Graph API Explorer: `me?fields=id,name`)
-- [ ] **0.5.6** Set a calendar reminder for day 50 to refresh the token
-
-### 0.6 Gemini CLI Local Setup
-*(For local development and writing/testing prompt files)*
-- [ ] **0.6.1** Install Node.js if not installed: `https://nodejs.org`
-- [ ] **0.6.2** Install Gemini CLI: `npm install -g @google/gemini-cli`
-- [ ] **0.6.3** Authenticate: `gemini auth` (use your work Google account with Gemini Enterprise)
-- [ ] **0.6.4** Test it works: `gemini -p "What is the GDP of Bangladesh in 2023? Search the web."` — it should browse and respond
-
-**Phase 0 Total: ~2.5 hours**
+## 📋 DETAILED WORK BREAKDOWN STRUCTURE
 
 ---
 
-## PHASE 1 — Config Files: Your Brand's DNA (4 hours)
-*These are Markdown files you write. Gemini CLI reads them as context for every task.*
+## ⏱️ TODAY'S IMMEDIATE ACTIONS (4-6 hours)
 
-### 1.1 `config/writing_style_profile.md`
-This is the most important file. Spend real time on it.
+### PHASE 0: Environment Setup (1.5 hours)
 
-- [ ] **1.1.1** Voice section: Describe your tone in concrete terms. Don't say "professional" — say "like a knowledgeable friend who reads BBS reports so you don't have to"
-- [ ] **1.1.2** Language rules table: specify Bangla/English % per element (headline, body, numbers, source lines)
-- [ ] **1.1.3** Vocabulary rules: 10+ "always use" terms in Bangla, 10+ "never use" terms. Be specific.
-- [ ] **1.1.4** Post structure rules: exact order of elements (hook → data → context → question → source)
-- [ ] **1.1.5** Paste **at least 3 full example posts verbatim** that represent your ideal style. This is how Gemini calibrates.
-- [ ] **1.1.6** Commit: `git add config/writing_style_profile.md && git commit -m "Add writing style profile"`
+#### 0.1 GCS Bucket Setup (20 min)
 
-### 1.2 `config/editorial_preferences.md`
-- [ ] **1.2.1** Content philosophy statement (objective, data-first, neutral)
-- [ ] **1.2.2** Priority topic list ranked (economic → education → infrastructure → healthcare)
-- [ ] **1.2.3** Banned topics and sensitivity flags (active court cases, religious controversies, etc.)
-- [ ] **1.2.4** Government period comparison rules (which eras, how to frame comparisons neutrally)
-- [ ] **1.2.5** International comparison lens (which peer countries to reference for context)
-- [ ] **1.2.6** Commit: `git add config/editorial_preferences.md && git commit -m "Add editorial preferences"`
+**Task:** Create folder structure in company's GCS bucket
 
-### 1.3 `config/visual_identity.md`
-- [ ] **1.3.1** Color palette: name, hex, and explicit usage rule per color (minimum 3 colors)
-- [ ] **1.3.2** Typography: Bangla font name + English font name + sizes per use case
-- [ ] **1.3.3** Template decision table: "if data is X type → use Y chart type"
-- [ ] **1.3.4** Mandatory elements for every visual: watermark handle, source line, dimensions
-- [ ] **1.3.5** Things to NEVER do visually: cherry-picked Y-axis, misleading scales, etc.
-- [ ] **1.3.6** Commit: `git add config/visual_identity.md && git commit -m "Add visual identity"`
+**Steps:**
+1. Open Google Cloud Console → Storage → Buckets
+2. Navigate to your accessible bucket (e.g., `gs://your-company-bucket`)
+3. Create folder: `bd-content/`
+4. Inside `bd-content/`, create these folders:
+   ```
+   bd-content/config/
+   bd-content/prompts/
+   bd-content/topics/
+   bd-content/pipeline/
+   bd-content/published/
+   bd-content/assets/
+   ```
+5. Test upload: Create a file `bd-content/README.md`:
+   ```markdown
+   # Bangladesh Content Platform
+   Created: [Today's Date]
+   Purpose: Automated political content generation
+   ```
+6. Upload via console to verify write permissions
 
-### 1.4 `config/source_priority.md`
-- [ ] **1.4.1** Tier 1: BBS, Bangladesh Bank, Ministry of Finance — include exact URL patterns for data portals
-- [ ] **1.4.2** Tier 2: World Bank, IMF, UNESCO, ADB — include API endpoints where they exist
-- [ ] **1.4.3** Tier 3: Daily Star, Prothom Alo data journalism — context only, never primary citation
-- [ ] **1.4.4** Tier 4 blacklist with explicit reasoning
-- [ ] **1.4.5** Fallback chain: "If BBS unavailable → try World Bank → if both fail → flag for human"
-- [ ] **1.4.6** Commit: `git add config/source_priority.md && git commit -m "Add source priority"`
-
-### 1.5 `config/fact_check_protocols.md`
-- [ ] **1.5.1** Confidence levels: `exact_match`, `within_rounding`, `plausible_interpolated`, `unverifiable`, `mismatch`
-- [ ] **1.5.2** Rounding tolerance: define when rounding is OK (2.09% → "approximately 2.1%")
-- [ ] **1.5.3** Broken URL protocol: try Wayback Machine → try Tier 2 alternative → flag if all fail
-- [ ] **1.5.4** Interpolation rules: when is historical data interpolation acceptable and how to label it
-- [ ] **1.5.5** Auto-correction rules: what can be fixed without human review vs. what must escalate
-- [ ] **1.5.6** Commit: `git add config/fact_check_protocols.md && git commit -m "Add fact check protocols"`
-
-**Phase 1 Total: ~4 hours**
+**Validation:**
+- [ ] Can navigate to `gs://[bucket]/bd-content/` in console
+- [ ] Can upload/view README.md
+- [ ] All 6 folders visible
 
 ---
 
-## PHASE 2 — Prompt Files: Gemini CLI's Instructions (3 hours)
-*You write these in Markdown. GitHub Actions passes them to Gemini CLI as its task. Think of these as job descriptions for an AI employee.*
+#### 0.2 GitHub Repository (Version Control) (15 min)
 
-### 2.1 `prompts/01_research.md`
+**Task:** Create private repo for code versioning (not execution)
 
-This prompt tells Gemini CLI how to research any Bangladesh data topic. It should include:
+**Steps:**
+1. Go to github.com → New Repository
+2. Name: `bd-content-platform`
+3. Privacy: **Private**
+4. Initialize with README
+5. Clone locally:
+   ```bash
+   cd ~/projects  # or your preferred location
+   git clone https://github.com/[YOUR-USERNAME]/bd-content-platform
+   cd bd-content-platform
+   ```
+6. Create local folder structure matching GCS:
+   ```bash
+   mkdir -p config prompts functions
+   touch .gitignore
+   ```
+7. Add to `.gitignore`:
+   ```
+   # Secrets
+   .env
+   service-account-key.json
+   
+   # Local testing
+   __pycache__/
+   *.pyc
+   .pytest_cache/
+   venv/
+   
+   # Pipeline outputs (these stay in GCS only)
+   pipeline/
+   published/
+   assets/
+   ```
 
-- [ ] **2.1.1** Role and goal statement
-- [ ] **2.1.2** Instruction to read: `config/source_priority.md`, `config/editorial_preferences.md`, and the topic brief at `topics/{TOPIC_ID}.md`
-- [ ] **2.1.3** Step-by-step research process (search → Tier 1 sources → cross-reference → extract data points)
-- [ ] **2.1.4** Exact output format: every data point needs value, unit, year, source name, source URL, confidence level, methodology note
-- [ ] **2.1.5** Self-assessment checklist Gemini CLI must complete before finishing
-- [ ] **2.1.6** Gate 1 declaration: "End your output with GATE_1: PASS or GATE_1: FAIL with reason"
-
-### 2.2 `prompts/02_write.md`
-
-- [ ] **2.2.1** Role: bilingual content writer for Bangladesh political data
-- [ ] **2.2.2** Instruction to read: `pipeline/{TOPIC_ID}/research.md`, `config/writing_style_profile.md`
-- [ ] **2.2.3** Output format specification: Instagram caption section (with character count), then Facebook post section, then Bangla-English ratio self-assessment
-- [ ] **2.2.4** Hard rules from style guide restated inline (Gemini must follow these non-negotiably)
-- [ ] **2.2.5** Self-review step: after writing, check against each vocabulary rule
-
-### 2.3 `prompts/03_factcheck.md`
-
-- [ ] **2.3.1** Role: skeptical fact verifier — trust nothing, verify everything
-- [ ] **2.3.2** Instruction to read: `pipeline/{TOPIC_ID}/draft.md`, `pipeline/{TOPIC_ID}/research.md`, `config/fact_check_protocols.md`
-- [ ] **2.3.3** Process: extract all numerical claims → fetch each source URL → compare → classify
-- [ ] **2.3.4** Output format: per-claim results table, then overall pass rate, then Gate 2 declaration
-- [ ] **2.3.5** Auto-correction section: for `within_rounding` cases, write the corrected version
-
-### 2.4 `prompts/04_stylecheck.md`
-
-- [ ] **2.4.1** Role: quality control editor who knows the platform voice cold
-- [ ] **2.4.2** Instruction to read: `pipeline/{TOPIC_ID}/draft.md`, `config/writing_style_profile.md`
-- [ ] **2.4.3** Scoring rubric: 8 dimensions with weights (total = 100)
-- [ ] **2.4.4** Output format: dimension scores table, deviations list with line references, overall score, Gate 3 declaration
-- [ ] **2.4.5** If score 80-84: also output a corrected version of the draft with deviations fixed
-
-### 2.5 `prompts/05_visual.md`
-
-- [ ] **2.5.1** Role: data visualization designer — honest, on-brand, accessible
-- [ ] **2.5.2** Instruction to read: `pipeline/{TOPIC_ID}/research.md`, `config/visual_identity.md`
-- [ ] **2.5.3** Chart type decision logic: temporal data → line chart, comparison → bar, single stat → data card
-- [ ] **2.5.4** **Critical instruction:** "Write a complete, self-contained Python script using only `matplotlib`, `PIL`, and `requests` (standard libraries available in GitHub Actions). The script must save its output to `pipeline/{TOPIC_ID}/instagram.png` (1080x1080px, 100dpi) and `pipeline/{TOPIC_ID}/facebook.png` (1200x630px). Include all brand colors and fonts from the visual identity config inline in the script."
-- [ ] **2.5.5** Mandatory elements checklist: source watermark, handle watermark, Bangla labels
-- [ ] **2.5.6** Gate 4 declaration after script
-
-**Phase 2 Total: ~3 hours**
+**Validation:**
+- [ ] Repo is private
+- [ ] Can push commits
+- [ ] .gitignore excludes sensitive files
 
 ---
 
-## PHASE 3 — Scripts via Gemini CLI (2 hours)
-*You DON'T write these. You ask Gemini CLI to write them. Do this locally in your repo folder.*
+#### 0.3 Google Sheets Setup (30 min)
 
-### 3.1 Generate Helper Scripts
-Run these Gemini CLI commands locally from your repo root. Review each output before committing.
+**Task:** Create content management spreadsheet
 
-- [ ] **3.1.1** Generate `scripts/get_next_topic.py`:
-  ```bash
-  gemini -p "Write a Python script called get_next_topic.py that:
-  1. Reads Google Sheets using the google-auth and gspread libraries
-  2. Credentials come from env var GOOGLE_SERVICE_ACCOUNT_JSON (base64 encoded JSON)
-  3. Sheet ID comes from env var GOOGLE_SHEETS_ID
-  4. Finds the first row in Content_Queue tab where Status='Approved'
-  5. Prints the topic data as JSON to stdout
-  6. Updates that row's Status to 'In Progress'
-  Use error handling. Add a --dry-run flag that doesn't update status."
-  > scripts/get_next_topic.py
-  ```
+**Steps:**
+1. Create new Google Sheet: "BD Content Platform"
+2. Share with your work email (edit access)
+3. Create 3 sheets (tabs):
 
-- [ ] **3.1.2** Generate `scripts/gate_check.py`:
-  ```bash
-  gemini -p "Write a Python script called gate_check.py that:
-  1. Takes --file path/to/file.md and --gate GATE_1 (or GATE_2, GATE_3, GATE_4) as args
-  2. Reads the file and looks for the line 'GATE_X: PASS' or 'GATE_X: FAIL'
-  3. Exits with code 0 for PASS, code 1 for FAIL
-  4. Also extracts and prints the score if present (e.g. 'Style Score: 87/100')
-  Simple, robust, no external dependencies beyond standard library."
-  > scripts/gate_check.py
-  ```
+**Sheet 1: "Content_Queue"**
+| Column A | Column B | Column C | Column D | Column E | Column F | Column G |
+|----------|----------|----------|----------|----------|----------|----------|
+| Topic_ID | Topic_Bangla | Topic_English | Priority | Context_Notes | Inspiration_URLs | Status |
+| T001 | শিক্ষা খরচ তুলনা | Education Spending Comparison | High | Compare 1996-2001 vs 2009-2024 primary education | https://example.com/similar | Approved |
 
-- [ ] **3.1.3** Generate `scripts/notify_slack.py`:
-  ```bash
-  gemini -p "Write a Python script called notify_slack.py that:
-  1. Takes --topic-id, --dry-run (bool), --fact-score, --style-score, --flags as args
-  2. Reads pipeline/{topic_id}/draft.md to get first 400 chars of Instagram caption
-  3. Sends a Slack Block Kit message to SLACK_REVIEW_CHANNEL_ID (env var)
-  4. Message includes: topic title, caption preview, quality scores, any flags, and 3 buttons: Approve / Request Changes / Reject
-  5. Each button's value includes the topic_id and dry_run status
-  6. Uses SLACK_BOT_TOKEN env var
-  7. Also attaches the instagram.png file from pipeline/{topic_id}/
-  Use requests library only. No Slack SDK."
-  > scripts/notify_slack.py
-  ```
+**Sheet 2: "Published_Log"**
+| Column A | Column B | Column C | Column D | Column E | Column F |
+|----------|----------|----------|----------|----------|----------|
+| Topic_ID | Published_Date | Instagram_URL | Likes | Comments | Status |
 
-- [ ] **3.1.4** Generate `scripts/publish_instagram.py`:
-  ```bash
-  gemini -p "Write a Python script called publish_instagram.py that:
-  1. Takes --topic-id as argument
-  2. Reads pipeline/{topic_id}/draft.md and extracts the Instagram caption section
-  3. The PNG file is at pipeline/{topic_id}/instagram.png
-  4. Uploads the image to Instagram using Instagram Graph API (2-step: create media container, then publish)
-  5. Uses env vars: INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_USER_ID
-  6. Logs the published post URL to stdout
-  7. If --dry-run flag is set, skips the API call and prints DRY_RUN instead
-  Use requests library only."
-  > scripts/publish_instagram.py
-  ```
+**Sheet 3: "Pipeline_Status"**
+| Column A | Column B | Column C | Column D | Column E |
+|----------|----------|----------|----------|----------|
+| Topic_ID | Stage | Status | Last_Updated | Notes |
 
-- [ ] **3.1.5** Generate `scripts/update_sheets.py`:
-  ```bash
-  gemini -p "Write a Python script called update_sheets.py that:
-  1. Takes --topic-id, --status (Published/Failed/Rejected), --post-url (optional) as args
-  2. Updates Content_Queue tab: sets Status column for the matching Topic_ID row
-  3. If status=Published: also appends a row to Published_Log with topic_id, date, post_url, fact_score, style_score
-  4. Same Google Sheets auth as get_next_topic.py (GOOGLE_SERVICE_ACCOUNT_JSON env var)
-  Uses gspread. Add error handling."
-  > scripts/update_sheets.py
-  ```
+4. Note the Sheet ID from URL: `https://docs.google.com/spreadsheets/d/[SHEET_ID]/edit`
 
-- [ ] **3.1.6** Review all generated scripts, test locally with `--dry-run` flags
-- [ ] **3.1.7** Commit: `git add scripts/ && git commit -m "Add Gemini-generated helper scripts"`
-
-**Phase 3 Total: ~2 hours**
+**Validation:**
+- [ ] 3 sheets created with correct headers
+- [ ] Can manually edit cells
+- [ ] Sheet ID copied for later use
 
 ---
 
-## PHASE 4 — GitHub Actions Workflows (3 hours)
+#### 0.4 Enable Required Google APIs (15 min)
 
-### 4.1 Main Pipeline: `.github/workflows/content-pipeline.yml`
+**Task:** Enable APIs in existing GCP project
 
-- [ ] **4.1.1** Create the workflow file with:
+**Steps:**
+1. Go to GCP Console → APIs & Services → Library
+2. Search and Enable these APIs:
+   - **Cloud Functions API**
+   - **Cloud Scheduler API**
+   - **Cloud Build API** (needed for function deployment)
+   - **Google Sheets API**
+   - **Gmail API** (for notifications)
+   - **Gemini API** (if not already enabled)
+3. Wait 2-3 minutes for propagation
 
-```yaml
-name: Content Pipeline
+**Validation:**
+- [ ] All 6 APIs show "Enabled" status
+- [ ] No error messages in notifications
 
-on:
-  schedule:
-    - cron: '0 3 * * 1-5'  # Mon-Fri 9am Bangladesh (UTC+6 → UTC 3am)
-  workflow_dispatch:
-    inputs:
-      topic_id:
-        description: 'Force a specific Topic ID (leave blank for auto)'
-        required: false
-      dry_run:
-        description: 'Dry run (no Instagram publish)'
-        type: boolean
-        default: true
+---
 
-jobs:
-  pipeline:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+#### 0.5 Instagram API Setup (10 min)
+
+**Task:** Get Instagram access token for publishing
+
+**Steps:**
+1. Go to developers.facebook.com
+2. My Apps → Create App → Business
+3. Add Instagram Graph API product
+4. Connect your Instagram Business/Creator account
+5. Generate Long-Lived Access Token (60-day validity)
+6. Save token to a secure note (we'll store it in Cloud Function environment later)
+
+**Validation:**
+- [ ] Long-lived token generated (starts with `EAA...`)
+- [ ] Token stored securely (NOT in GitHub)
+- [ ] Instagram account connected
+
+---
+
+### PHASE 1: Configuration Files (2 hours)
+
+#### 1.1 Writing Style Profile (30 min)
+
+**Task:** Document YOUR unique voice
+
+**Location:** Create `config/writing_style_profile.md`
+
+**Template:**
+```markdown
+# Writing Style Profile
+
+## Voice Characteristics
+- **Tone:** [e.g., Informative yet conversational, like a knowledgeable friend]
+- **Formality:** [e.g., Semi-formal, accessible to 18-35 year olds]
+- **Perspective:** [e.g., First-person plural "আমরা দেখছি", "We observe"]
+
+## Language Mix Rules
+- **Headlines:** 60% Bangla, 40% English (numbers in English)
+- **Body Text:** 70% Bangla, 30% English (technical terms)
+- **Statistics:** Always English numerals with Bangla context
+- **Sources:** English (international standards)
+
+## Vocabulary Rules
+
+### ALWAYS USE (Bangla):
+- "তথ্য" (data) not "ডেটা"  
+- "সরকার" (government) not "গভর্নমেন্ট"
+- "অর্থনীতি" (economy) not "ইকোনমি"
+
+### NEVER USE:
+- Inflammatory words without verification ("দুর্নীতি" needs proof)
+- Partisan labels ("ভালো"/"খারাপ" for governments without data)
+- Absolute claims ("সবচেয়ে বেশি" without citation)
+
+## Example Post (Reference for Gemini):
+
+```
+শিক্ষা খাতে কত টাকা খরচ হচ্ছে? 🎓
+
+একটা interesting comparison:
+
+**Period A (1996-2001):**
+• Education budget: GDP-র ২.১%
+• প্রাথমিক enrollment: ৮৭%
+
+**Period B (2009-2024):**
+• Education budget: GDP-র ২.৫%
+• প্রাথমিক enrollment: ৯৮%
+
+অগ্রগতি আছে, তবে UNESCO recommendation: 4-6% of GDP
+আমরা এখনও সেখানে পৌঁছাইনি।
+
+আপনার মতামত?
+
+📚 Source: UNESCO Institute for Statistics  
+[Link: https://...]
+```
+
+## Structural Templates
+
+### Comparison Post:
+1. Question headline (Bangla)
+2. Context (1-2 lines)
+3. Data comparison (bullet points)
+4. Analysis (what changed?)
+5. Source citation
+6. Engagement question
+
+### Timeline Post:
+1. Event/Topic + time span
+2. Hook (why it matters)
+3. Chronological data points
+4. Visual indicator for each milestone
+5. Source link
+```
+
+**Action:**
+1. Copy template to local file: `config/writing_style_profile.md`
+2. Replace bracketed placeholders with YOUR preferences
+3. Add 2-3 of your actual example posts (if you have any)
+4. Upload to GCS: `gs://[bucket]/bd-content/config/writing_style_profile.md`
+5. Commit to GitHub:
+   ```bash
+   git add config/writing_style_profile.md
+   git commit -m "Add writing style profile"
+   git push
+   ```
+
+**Validation:**
+- [ ] File exists in both GCS and GitHub
+- [ ] At least 1 complete example post included
+- [ ] All vocabulary rules defined
+
+---
+
+#### 1.2 Editorial Preferences (20 min)
+
+**Location:** Create `config/editorial_preferences.md`
+
+**Template:**
+```markdown
+# Editorial Preferences
+
+## Content Philosophy
+- Strictly objective, data-driven storytelling
+- No partisan language or subjective judgments
+- Focus on verifiable facts from official sources
+- Let numbers tell the story
+
+## Priority Topics (Rank these in research)
+1. Economic indicators (GDP, inflation, unemployment)
+2. Education system metrics (budget, enrollment, outcomes)
+3. Infrastructure development (roads, bridges, digital)
+4. Public health data (life expectancy, hospital access)
+5. International comparisons (BD vs neighbors)
+
+## Topics to AVOID
+- Religious controversies (no data-based discussion possible)
+- Active legal cases (sub judice)
+- Personal scandals without official records
+- Speculation about future events
+- Unverified social media claims
+
+## Audience Profile
+- **Age:** 18-35 years old
+- **Location:** Primarily urban Bangladesh, some diaspora
+- **Education:** College-educated or students
+- **Preferences:** Quick facts, visual data, comparative analysis
+- **Dislikes:** Long text, partisan rhetoric, clickbait
+
+## Source Tier System
+
+### Tier 1 (Always Prefer):
+- Bangladesh Bureau of Statistics (BBS)
+- Bangladesh Bank
+- World Bank Open Data
+- UNESCO Institute for Statistics
+- IMF Country Reports
+
+### Tier 2 (Use if Tier 1 unavailable):
+- UN agencies (UNDP, UNICEF)
+- Asian Development Bank
+- Credible local research institutes
+
+### Tier 3 (Use with caution + cross-check):
+- News media reports (verify original source)
+- Academic papers (check methodology)
+- NGO reports (check funding bias)
+
+## Tone Guidelines
+- Informative without being preachy
+- Curious without being accusatory
+- Respectful of all political periods
+- Educational, not entertainment
+```
+
+**Action:**
+1. Create file locally, fill template
+2. Upload to GCS: `gs://[bucket]/bd-content/config/editorial_preferences.md`
+3. Commit to GitHub
+4. **Important:** Review and customize the "Priority Topics" section to match YOUR interests
+
+**Validation:**
+- [ ] File in GCS and GitHub
+- [ ] Source tier system defined with specific URLs
+- [ ] At least 5 topics to avoid listed
+
+---
+
+#### 1.3 Visual Identity (30 min)
+
+**Location:** Create `config/visual_identity.md`
+
+**Template:**
+```markdown
+# Visual Identity Guide
+
+## Brand Colors (Markdown-Friendly Format)
+
+| Purpose | Color Name | Hex Code | Usage |
+|---------|------------|----------|-------|
+| Primary | Bangladesh Green | `#006A4E` | Headers, key statistics, CTAs |
+| Secondary | Liberation Red | `#F42A41` | Highlights, important dates, negative trends |
+| Neutral Dark | Charcoal | `#1A1A1A` | Body text, chart labels |
+| Neutral Light | Off-White | `#F5F5F5` | Backgrounds, subtle contrast |
+| Data - Positive | Growth Green | `#10B981` | Upward trends, improvements |
+| Data - Negative | Alert Red | `#EF4444` | Downward trends, concerns |
+| Data - Neutral | Gray | `#6B7280` | Comparisons, benchmarks |
+
+## Typography
+
+| Element | Bangla Font | English Font | Size | Weight |
+|---------|-------------|--------------|------|--------|
+| Headlines | Noto Sans Bengali | Inter | 32px | Bold |
+| Subheadlines | Noto Sans Bengali | Inter | 24px | SemiBold |
+| Body Text | Noto Sans Bengali | Inter | 18px | Regular |
+| Captions | Noto Sans Bengali | Inter | 14px | Regular |
+| Source Citations | — | Inter | 12px | Regular |
+
+## Layout Specifications
+
+### Instagram Square (1080x1080px)
+- Margins: 80px all sides
+- Content area: 920x920px
+- Logo placement: Top-right, 60px from edges
+- Source citation: Bottom-left corner
+- Watermark: Bottom-right, 60% opacity
+
+### Facebook Landscape (1200x630px)
+- Margins: 60px all sides
+- Title area: Top 200px
+- Chart area: Center 370px
+- Source bar: Bottom 60px
+
+## Chart Style Guidelines
+
+### General Rules
+- Line width: 4px for primary data
+- Grid lines: Subtle (#E5E7EB), optional
+- Axis labels: 14px, dark gray
+- Data point markers: 8px circles
+- Legend: Top-right or bottom, 12px
+
+### Specific Chart Types
+
+**Line Charts:**
+- Use for: Time series, trends
+- Max lines: 3 (more = confusing)
+- Colors: Primary for main trend, others from data palette
+
+**Bar Charts:**
+- Use for: Comparisons, rankings
+- Bar width: 60px
+- Spacing: 20px between bars
+- Rounded corners: 8px
+
+**Pie Charts:**
+- Avoid if possible (hard to read exact values)
+- If needed: Max 5 segments, label percentages
+
+## Source Citation Format
+
+```
+📊 Source: [Organization Name]
+   [Short URL or "See link in bio"]
+```
+
+Position: Bottom-left, 12px, 70% opacity
+
+## Watermark
+
+```
+@BangladeshDataStories
+```
+
+Position: Bottom-right, 14px, 60% opacity
+```
+
+**Action:**
+1. Create file locally
+2. Choose YOUR color palette (use Bangladesh flag colors or your preference)
+3. Upload to GCS and commit to GitHub
+
+**Validation:**
+- [ ] At least 7 colors defined with hex codes
+- [ ] Font specifications for Bangla and English
+- [ ] Instagram and Facebook layouts specified
+
+---
+
+#### 1.4 Source Priority (20 min)
+
+**Location:** Create `config/source_priority.md`
+
+**Template:**
+```markdown
+# Data Source Priority & URLs
+
+## Tier 1: Government & International Official Sources
+
+### Bangladesh Bureau of Statistics (BBS)
+- **Homepage:** http://bbs.gov.bd/
+- **Statistical Yearbook:** http://bbs.portal.gov.bd/sites/default/files/files/bbs.portal.gov.bd/page/[year]/
+- **Data Portal:** http://data.bbs.gov.bd/
+- **Use for:** GDP, population, education, employment, poverty
+
+### Bangladesh Bank
+- **Homepage:** https://www.bb.org.bd/
+- **Economic Data:** https://www.bb.org.bd/en/index.php/econdata/index
+- **Use for:** Inflation, exchange rates, reserves, monetary policy
+
+### World Bank Open Data
+- **Bangladesh Page:** https://data.worldbank.org/country/bangladesh
+- **API:** https://api.worldbank.org/v2/country/bgd/indicator/[INDICATOR]
+- **Use for:** Cross-country comparisons, historical trends
+
+### UNESCO Institute for Statistics
+- **Country Profile:** http://uis.unesco.org/en/country/bd
+- **Use for:** Education spending, literacy rates, enrollment
+
+### IMF Bangladesh
+- **Country Page:** https://www.imf.org/en/Countries/BGD
+- **Use for:** Fiscal data, debt statistics, projections
+
+## Tier 2: Credible International Organizations
+
+### Asian Development Bank
+- **URL:** https://www.adb.org/countries/bangladesh/main
+- **Use for:** Infrastructure, development indicators
+
+### UNDP Bangladesh
+- **URL:** https://www.undp.org/bangladesh
+- **Use for:** Human development index, poverty
+
+### UNICEF Bangladesh
+- **URL:** https://www.unicef.org/bangladesh/
+- **Use for:** Child health, education, nutrition
+
+## Tier 3: News & Research (Verify Before Use)
+
+### The Daily Star
+- **URL:** https://www.thedailystar.net/
+- **Use:** Only for referencing official announcements (find original source)
+
+### Centre for Policy Dialogue (CPD)
+- **URL:** https://cpd.org.bd/
+- **Use:** Economic analysis (cite as "CPD analysis of [source]")
+
+## Verification Rules
+
+1. **Always prefer Tier 1** sources
+2. If Tier 1 unavailable, use Tier 2 and note in output
+3. If using Tier 3, MUST cross-reference with Tier 1 or 2
+4. Never use: Wikipedia, blogs, social media as primary sources
+5. For controversial data: Require 2+ sources agreement
+```
+
+**Action:**
+1. Create file with all source URLs
+2. Test 3-4 URLs to ensure they work
+3. Upload to GCS and commit to GitHub
+
+**Validation:**
+- [ ] At least 5 Tier 1 sources with working URLs
+- [ ] Each source has clear "Use for:" descriptions
+- [ ] Verification rules defined
+
+---
+
+#### 1.5 Fact-Check Protocols (20 min)
+
+**Location:** Create `config/fact_check_protocols.md`
+
+**Template:**
+```markdown
+# Fact-Checking Protocol
+
+## Mandatory Checks for Every Draft
+
+### 1. Numerical Claims
+**Rule:** Every number must have a source URL.
+
+**Process:**
+1. Extract all numerical claims from draft
+2. For each number, verify:
+   - Source document accessible?
+   - Number appears in source? (exact match)
+   - Context correct? (not cherry-picked)
+3. Flag if: Source not accessible, number doesn't match, context misleading
+
+**Pass threshold:** 100% of numbers verified
+
+### 2. Date Accuracy
+**Rule:** All dates must be verifiable from sources.
+
+**Check:**
+- Government period dates (e.g., "1996-2001" → verify election dates)
+- Data release dates (e.g., "BBS published in 2023" → check actual date)
+- Historical events (e.g., "Liberation in 1971" → correct)
+
+**Pass threshold:** 100% of dates correct
+
+### 3. Attribution Accuracy
+**Rule:** Claims about "X government did Y" must have official source.
+
+**Process:**
+1. Identify policy attribution claims
+2. Find official government document/announcement
+3. Verify timing (did this government implement this?)
+4. Note if policy started under previous government (common error)
+
+**Pass threshold:** No false attributions
+
+### 4. Comparative Claims
+**Rule:** "Higher than" / "Lower than" statements must use same measurement unit and time period.
+
+**Check:**
+- Same currency? (BDT vs USD)
+- Same methodology? (CPI vs GDP deflator for inflation)
+- Same geographic scope? (National vs regional)
+- Same time granularity? (Annual vs quarterly)
+
+**Pass threshold:** All comparisons apples-to-apples
+
+### 5. Omission Check
+**Rule:** Are we cherry-picking data?
+
+**Check:**
+- If showing positive trend, is there a recent downturn not mentioned?
+- If showing increase, is it due to inflation adjustment?
+- If showing improvement, what's the absolute level? (80% → 85% sounds good, but if baseline should be 95%, it's actually bad)
+
+**Pass threshold:** No misleading omissions flagged
+
+## Confidence Scoring
+
+For each claim, assign:
+- **HIGH:** Direct source, recent, from Tier 1, exact number match
+- **MEDIUM:** Tier 2 source, or number requires calculation from source
+- **LOW:** Tier 3 source, or indirect inference
+
+**Overall Draft Pass Criteria:**
+- 90%+ claims are HIGH confidence
+- 0 LOW confidence claims on critical facts
+- All flags resolved before human review
+
+## Handling Discrepancies
+
+If two sources disagree:
+1. Note both values in fact-check report
+2. Check publication dates (use more recent)
+3. Check methodology notes (which is more rigorous?)
+4. Default to Tier 1 > Tier 2 > Tier 3
+5. If still unclear, flag for human review
+```
+
+**Action:**
+1. Create file locally
+2. Review each protocol section - does it make sense for YOUR use case?
+3. Upload to GCS and commit to GitHub
+
+**Validation:**
+- [ ] 5 check types defined
+- [ ] Pass thresholds specified
+- [ ] Confidence scoring system clear
+
+---
+
+### PHASE 2: Prompt Engineering (2 hours)
+
+#### 2.1 Research Prompt (30 min)
+
+**Location:** Create `prompts/research_prompt.md`
+
+**Template:**
+```markdown
+# Research Agent System Prompt
+
+You are a research specialist for a Bangladesh political content platform. Your job is to gather objective, verifiable data from authoritative sources.
+
+## Your Mission
+Given a topic brief, find the specific data points needed, cite sources meticulously, and present findings in structured JSON format.
+
+## Source Priority
+ALWAYS prefer sources in this order:
+1. Bangladesh Bureau of Statistics (BBS)
+2. Bangladesh Bank
+3. World Bank, UNESCO, IMF
+4. Other UN agencies
+5. Only use news sources if no official data exists
+
+Read the source priority file for full details.
+
+## Research Process
+
+### Step 1: Understand the Topic
+- Read the topic brief carefully
+- Identify: What data is needed? What time period? Any comparisons requested?
+- Check context notes for user's specific focus
+
+### Step 2: Search Strategy
+- Start with Tier 1 sources
+- Use specific search terms (e.g., "Bangladesh GDP 1990-2020 BBS" not just "Bangladesh economy")
+- Look for official reports, statistical yearbooks, databases
+- If a source is paywalled or broken, note it and try alternatives
+
+### Step 3: Data Extraction
+- Record exact numbers as they appear (don't round)
+- Note units (billion BDT vs USD, percentage points vs percent)
+- Capture year/date of data
+- Copy the exact URL where you found it
+
+### Step 4: Cross-Verification
+- If possible, check the same statistic in a second source
+- Flag discrepancies (e.g., "BBS says 5.2%, World Bank says 5.4%")
+- Prefer official Bangladesh sources over international estimates when available
+
+### Step 5: Context Gathering
+- Look for methodology notes (how was this measured?)
+- Check if there are known data issues (e.g., "BBS revised this figure in 2023")
+- Note any important caveats (e.g., "excluding informal sector")
+
+## Output Format
+
+Respond ONLY with valid JSON. No markdown, no explanations outside JSON.
+
+```json
+{
+  "topic_id": "T001",
+  "research_date": "2026-02-22",
+  "data_points": [
+    {
+      "metric": "Education Budget (% of GDP)",
+      "value": 2.1,
+      "unit": "percent",
+      "year": "1996-2001",
+      "period_type": "average",
+      "source": {
+        "organization": "UNESCO Institute for Statistics",
+        "title": "Education Finance in Bangladesh, 1990-2010",
+        "url": "https://exact-url-here.pdf",
+        "accessed": "2026-02-22",
+        "tier": 1
+      },
+      "confidence": "high",
+      "notes": "Simple average across 6 years (1996-2001)"
+    },
+    {
+      "metric": "Primary School Enrollment Rate",
+      "value": 87,
+      "unit": "percent",
+      "year": "2000",
+      "period_type": "annual",
+      "source": {
+        "organization": "Bangladesh Bureau of Statistics",
+        "title": "Statistical Yearbook 2001",
+        "url": "http://bbs.portal.gov.bd/.../yearbook_2001.pdf",
+        "accessed": "2026-02-22",
+        "tier": 1
+      },
+      "confidence": "high",
+      "notes": "Net enrollment rate for ages 6-10"
+    }
+  ],
+  "methodology_notes": "BBS data for 1998 unavailable; used World Bank estimate for that year",
+  "data_gaps": ["Government spending breakdown by education level not available for 1996-2001 period"],
+  "cross_references": [
+    {
+      "metric": "Primary enrollment",
+      "source1": "BBS: 87%",
+      "source2": "World Bank: 86%",
+      "resolution": "Used BBS (Tier 1 source)"
+    }
+  ],
+  "human_review_flags": []
+}
+```
+
+## Quality Standards
+
+- **Minimum:** 3 data points per topic
+- **Citation:** 100% of data points have working source URLs
+- **Confidence:** 80%+ of data points marked "high" confidence
+- **Gaps:** Explicitly note any data you couldn't find
+
+## When to Flag for Human Review
+
+Flag if:
+- Cannot find ANY official data on the topic (might need topic change)
+- Major discrepancies between sources (>10% difference in numbers)
+- Data is outdated (>5 years old and no recent update available)
+- Source is only available in Bangla and contains complex statistical tables (you might misread)
+
+## Remember
+You are NOT writing content. You are gathering raw materials. Be thorough, be accurate, cite everything.
+```
+
+**Action:**
+1. Create file locally
+2. Review the JSON output format - does it capture what you need?
+3. Upload to GCS and commit to GitHub
+
+**Validation:**
+- [ ] File uploaded to `gs://[bucket]/bd-content/prompts/research_prompt.md`
+- [ ] JSON output format is valid (test with a JSON validator)
+- [ ] Committed to GitHub
+
+---
+
+#### 2.2 Writer Prompt (30 min)
+
+**Location:** Create `prompts/writer_prompt.md`
+
+**Template:**
+```markdown
+# Content Writer System Prompt
+
+You are a bilingual content writer for a Bangladesh political content platform. Your voice must match the creator's style exactly.
+
+## Your Mission
+Transform research data into engaging, objective Bangla-English mixed content that educates young Bangladeshis without partisan bias.
+
+## Input
+You receive:
+1. Research JSON (data points + sources)
+2. Writing style profile (the creator's voice)
+3. Visual identity guide (for understanding brand tone)
+4. Topic context notes (user's specific angle)
+
+## Core Writing Rules
+
+### Language Mix (70% Bangla, 30% English)
+- **Headlines:** Start in Bangla for emotional connection
+  - Good: "শিক্ষা খাতে কত টাকা খরচ হচ্ছে?"
+  - Bad: "How Much is Education Budget?"
+- **Body:** Mix naturally, like young Bangladeshis speak
+  - Good: "১৯৯৬ সালে education budget ছিল GDP-র ২.১%"
+  - Bad: "১৯৯৬ সালে শিক্ষা বাজেট ছিল জিডিপি এর ২.১ শতাংশ" (too formal)
+- **Numbers:** ALWAYS use English numerals: "২.১%" → "2.1%"
+- **Sources:** English only (international standard)
+
+### Tone Matching
+Read the writing style profile carefully. Match:
+- Formality level (conversational? academic?)
+- Sentence length (short punchy? or longer explanatory?)
+- Emoji usage (how many? which types?)
+- Question style (rhetorical? direct?)
+
+### Structural Template
+Use one of these structures (check style profile for preference):
+
+**Comparison Structure:**
+```
+[Question headline in Bangla]
+
+[1-2 sentences context]
+
+**Period A:**
+• Data point 1
+• Data point 2
+
+**Period B:**
+• Data point 1
+• Data point 2
+
+[Analysis: what changed?]
+
+[Benchmark or context: where should we be?]
+
+[Source citation]
+
+[Engagement question]
+```
+
+**Timeline Structure:**
+```
+[Event + time span in Bangla]
+
+[Hook: why this matters now]
+
+📅 [Year]: [Milestone]
+📅 [Year]: [Milestone]
+📅 [Year]: [Milestone]
+
+[Trend observation]
+
+[Source citation]
+
+[Forward-looking question]
+```
+
+### Citation Rules
+- EVERY statistic must reference a source
+- Format: "📊 Source: [Organization Name]" at the end
+- Include URL if it fits (Instagram allows 1 link in bio, so say "Link in bio")
+- For multiple sources, list all
+
+### Objectivity Safeguards
+**NEVER:**
+- Use value judgments ("good", "bad", "terrible", "excellent") without data support
+- Attribute intent ("government wanted to...", "aimed to...")
+- Make causal claims without evidence ("due to X, Y happened")
+- Cherry-pick data (if trend reversed recently, mention it)
+
+**ALWAYS:**
+- Use neutral language ("increased", "decreased", "changed")
+- Present both sides of comparisons fairly
+- Note data limitations (e.g., "BBS data for 1998 unavailable")
+- Include benchmarks (e.g., "UNESCO recommends 4-6%")
+
+## Output Format
+
+Respond with valid JSON:
+
+```json
+{
+  "topic_id": "T001",
+  "draft_date": "2026-02-22",
+  "platform": "instagram",
+  "content": {
+    "caption": "শিক্ষা খাতে কত টাকা খরচ হচ্ছে? 🎓\n\nএকটা interesting comparison:\n\n**Period A (1996-2001):**\n• Education budget: GDP-র 2.1%\n• প্রাথমিক enrollment: 87%\n\n**Period B (2009-2024):**\n• Education budget: GDP-র 2.5%\n• প্রাথমিক enrollment: 98%\n\nঅগ্রগতি আছে, তবে UNESCO recommendation: at least 4% (ideally 6%)\nআমরা এখনও সেখানে পৌঁছাইনি।\n\nআপনার মতামত?\n\n📚 Source: UNESCO Institute for Statistics\n[Link in bio]\n\n#BangladeshEducation #DataDrivenBD",
+    "hashtags": ["#BangladeshEducation", "#DataDrivenBD", "#শিক্ষা", "#তথ্যভিত্তিক"],
+    "character_count": 487,
+    "bangla_percentage": 68,
+    "english_percentage": 32
+  },
+  "metadata": {
+    "structure_used": "comparison",
+    "emojis_count": 2,
+    "questions_count": 2,
+    "sources_cited": 1,
+    "data_points_used": 4
+  },
+  "self_review": {
+    "style_match_confidence": "high",
+    "potential_issues": [],
+    "notes": "Used comparison structure as per style guide example. Maintained neutral tone throughout."
+  }
+}
+```
+
+## Quality Checklist (Before Submitting)
+
+- [ ] Bangla-English ratio is 65-75% Bangla, 25-35% English
+- [ ] All numerals in English (2.1%, not ২.১%)
+- [ ] Every statistic has source attribution
+- [ ] No partisan language or value judgments
+- [ ] Character count < 2200 (Instagram limit)
+- [ ] At least 1 engagement question
+- [ ] Hashtags relevant and mix Bangla/English
+
+## Remember
+Your job is to make data storytelling accessible, not to make arguments or push agendas. Let the numbers speak.
+```
+
+**Action:**
+1. Create file locally
+2. Review the JSON output format
+3. Upload to GCS and commit to GitHub
+
+**Validation:**
+- [ ] File in GCS and GitHub
+- [ ] Language mix percentages match your preference
+- [ ] Example JSON is complete and valid
+
+---
+
+#### 2.3 Fact-Check Prompt (30 min)
+
+**Location:** Create `prompts/factcheck_prompt.md`
+
+**Template:**
+```markdown
+# Fact-Checker System Prompt
+
+You are a meticulous fact-verification specialist. Your job is to validate every claim in a draft against original sources.
+
+## Your Mission
+Verify that every number, date, and claim in the draft content matches the research data and original sources. Catch errors before they reach the audience.
+
+## Input
+You receive:
+1. Draft content JSON (from writer)
+2. Research JSON (original data with source URLs)
+3. Fact-check protocols (verification rules)
+
+## Verification Process
+
+### Step 1: Extract Claims
+Parse the draft and list all factual claims:
+- Numerical claims (GDP was 2.1%)
+- Date claims (period 1996-2001)
+- Attribution claims (government X implemented Y)
+- Comparative claims (higher than, increased from X to Y)
+- Trend claims (improved, declined, remained stable)
+
+### Step 2: Match to Research Data
+For each claim:
+1. Find corresponding data point in research JSON
+2. Check: Does number match exactly?
+3. Check: Is context correct? (not cherry-picked or misleading)
+4. Check: Is source accurately cited?
+
+### Step 3: Fetch Original Sources (If Possible)
+If you have web search capability:
+- Visit the source URL from research JSON
+- Verify the number appears in the source document
+- Check if there's additional context that changes meaning
+
+### Step 4: Apply Fact-Check Protocols
+Follow the rules from `config/fact_check_protocols.md`:
+- 100% of numbers must have sources
+- Dates must be verifiable
+- Comparisons must use same units
+- No false attributions
+
+### Step 5: Assign Confidence Scores
+For each claim:
+- **VERIFIED:** Number matches source exactly, context accurate
+- **MINOR_ISSUE:** Number correct but context could be clearer
+- **MAJOR_ISSUE:** Number wrong, misleading context, or no source
+- **CANNOT_VERIFY:** Source not accessible (need human review)
+
+## Output Format
+
+```json
+{
+  "topic_id": "T001",
+  "factcheck_date": "2026-02-22",
+  "draft_analyzed": "draft.json",
+  "claims_extracted": 6,
+  "verification_results": [
+    {
+      "claim_id": 1,
+      "claim_text": "Education budget ছিল GDP-র 2.1%",
+      "claim_type": "numerical",
+      "extracted_value": 2.1,
+      "extracted_unit": "percent of GDP",
+      "extracted_period": "1996-2001",
+      "research_match": {
+        "value": 2.1,
+        "unit": "percent",
+        "period": "1996-2001",
+        "source_url": "https://unesco.org/...",
+        "matches": true
+      },
+      "verification_status": "VERIFIED",
+      "confidence": "high",
+      "notes": "Exact match with UNESCO data, period correct"
+    },
+    {
+      "claim_id": 2,
+      "claim_text": "Primary enrollment: 87%",
+      "claim_type": "numerical",
+      "extracted_value": 87,
+      "extracted_unit": "percent",
+      "extracted_period": "Period A (implied 1996-2001)",
+      "research_match": {
+        "value": 87,
+        "unit": "percent",
+        "year": "2000",
+        "source_url": "http://bbs.gov.bd/...",
+        "matches": true
+      },
+      "verification_status": "MINOR_ISSUE",
+      "confidence": "medium",
+      "notes": "Number correct but draft says 'Period A average' when source only has 2000 data. Should say 'as of 2000'"
+    }
+  ],
+  "overall_assessment": {
+    "total_claims": 6,
+    "verified": 4,
+    "minor_issues": 2,
+    "major_issues": 0,
+    "cannot_verify": 0,
+    "pass_rate": 66.7,
+    "passed_threshold": false,
+    "threshold_required": 95.0
+  },
+  "corrections_needed": [
+    {
+      "claim_id": 2,
+      "current_text": "প্রাথমিক enrollment: 87%",
+      "suggested_fix": "প্রাথমিক enrollment: 87% (as of 2000)",
+      "reason": "Clarify data is point-in-time, not period average"
+    }
+  ],
+  "human_review_flags": [],
+  "recommendation": "RETURN_TO_WRITER",
+  "reasoning": "Pass rate 66.7% is below 95% threshold. Two minor issues need correction before proceeding."
+}
+```
+
+## Quality Gates
+
+### GATE 2: Fact-Check Pass Criteria
+- ✅ 95%+ of claims verified
+- ✅ 0 major issues
+- ✅ All corrections applied
+- ✅ Source URLs accessible
+
+**If passed:** Draft proceeds to style check
+**If failed:** Return to writer with corrections
+
+### Special Cases
+
+**Discrepancy Between Sources:**
+If research JSON shows conflicting data from multiple sources:
+- Note both values in verification
+- Check which source was used in draft
+- Verify it's the higher-tier source
+- If draft used lower-tier source incorrectly, flag for correction
+
+**Missing Context:**
+If a number is technically correct but misleading without context:
+- Flag as MINOR_ISSUE
+- Suggest adding context (e.g., "but population grew 15%")
+
+**Rounding:**
+If draft rounds numbers (2.14% → 2.1%):
+- Allow if: reasonable rounding (1 decimal place)
+- Flag if: misleading (2.9% → 3% when 3% is a symbolic threshold)
+
+## Remember
+Your job is to be the last line of defense against misinformation. Be strict but fair.
+```
+
+**Action:**
+1. Create file
+2. Review verification process
+3. Upload to GCS and commit to GitHub
+
+**Validation:**
+- [ ] File in GCS and GitHub
+- [ ] Pass criteria clearly defined (95% threshold)
+- [ ] JSON format valid
+
+---
+
+[Due to length constraints, I'll provide the remaining prompts in a condensed format]
+
+#### 2.4 Style Check Prompt (15 min)
+
+**Location:** `prompts/stylecheck_prompt.md`
+
+**Key Sections:**
+- Compare draft against writing_style_profile.md
+- Score on 10 dimensions (tone, ratio, structure, etc.)
+- Return JSON with score + specific issues
+- Pass if score ≥ 85%
+
+**Action:** Create, upload to GCS, commit to GitHub
+
+---
+
+#### 2.5 Visual Designer Prompt (15 min)
+
+**Location:** `prompts/visual_prompt.md`
+
+**Key Sections:**
+- Generate Python/Matplotlib code for charts
+- Follow visual_identity.md (colors, fonts)
+- Output executable .py file
+- Add source watermark automatically
+
+**Action:** Create, upload to GCS, commit to GitHub
+
+---
+
+### PHASE 3: Cloud Functions (2-3 hours)
+
+#### 3.1 Main Pipeline Function (90 min)
+
+**Location:** Create `functions/main_pipeline/main.py`
+
+**Function Purpose:** Orchestrate the entire content pipeline when triggered by Cloud Scheduler
+
+**Key Steps:**
+1. Read next approved topic from Google Sheets
+2. Load config files from GCS
+3. Call Gemini API 5 times (research, write, factcheck, stylecheck, visual)
+4. Save all outputs to GCS
+5. Send Gmail notification when ready for review
+
+**Code Template:**
+```python
+import functions_framework
+from google.cloud import storage
+from googleapiclient.discovery import build
+import google.generativeai as genai
+import json
+import os
+
+# Initialize clients
+storage_client = storage.Client()
+BUCKET_NAME = os.environ.get('GCS_BUCKET')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+@functions_framework.http
+def run_pipeline(request):
+    """Main pipeline orchestrator"""
     
-    env:
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      SLACK_REVIEW_CHANNEL_ID: ${{ secrets.SLACK_REVIEW_CHANNEL_ID }}
-      SLACK_ERRORS_CHANNEL_ID: ${{ secrets.SLACK_ERRORS_CHANNEL_ID }}
-      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
-      INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
-      DRY_RUN: ${{ inputs.dry_run || 'true' }}
+    # Step 1: Get next topic from Sheets
+    topic = get_next_topic_from_sheets()
+    if not topic:
+        return {"status": "no_topics", "message": "No approved topics found"}
+    
+    topic_id = topic['Topic_ID']
+    
+    # Step 2: Load config files from GCS
+    configs = load_configs_from_gcs()
+    
+    # Step 3: Run Gemini stages
+    try:
+        # Stage 1: Research
+        research_result = run_research_stage(topic, configs)
+        save_to_gcs(f'pipeline/{topic_id}/01_research.json', research_result)
+        
+        # Stage 2: Write
+        draft = run_write_stage(research_result, configs)
+        save_to_gcs(f'pipeline/{topic_id}/02_draft.json', draft)
+        
+        # Stage 3: Fact-check
+        factcheck = run_factcheck_stage(draft, research_result, configs)
+        save_to_gcs(f'pipeline/{topic_id}/03_factcheck.json', factcheck)
+        
+        # Check Gate 2
+        if factcheck['overall_assessment']['pass_rate'] < 95:
+            # Failed fact-check, notify and stop
+            send_notification(topic_id, "failed", "Fact-check failed")
+            update_sheets_status(topic_id, "Failed_FactCheck")
+            return {"status": "failed", "gate": "factcheck"}
+        
+        # Stage 4: Style check
+        stylecheck = run_stylecheck_stage(draft, configs)
+        save_to_gcs(f'pipeline/{topic_id}/04_stylecheck.json', stylecheck)
+        
+        # Check Gate 3
+        if stylecheck['overall_score'] < 85:
+            send_notification(topic_id, "failed", "Style check failed")
+            update_sheets_status(topic_id, "Failed_StyleCheck")
+            return {"status": "failed", "gate": "stylecheck"}
+        
+        # Stage 5: Visual
+        visual_code = run_visual_stage(research_result, configs)
+        save_to_gcs(f'pipeline/{topic_id}/05_chart_code.py', visual_code)
+        
+        # Execute chart code (generates PNG)
+        execute_chart_code(topic_id, visual_code)
+        
+        # All gates passed, notify human
+        send_review_notification(topic_id)
+        update_sheets_status(topic_id, "Ready_For_Review")
+        
+        return {"status": "success", "topic_id": topic_id}
+        
+    except Exception as e:
+        send_notification(topic_id, "error", str(e))
+        update_sheets_status(topic_id, "Pipeline_Error")
+        return {"status": "error", "message": str(e)}, 500
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+def get_next_topic_from_sheets():
+    """Read Content_Queue sheet, return first Approved topic"""
+    sheets_service = build('sheets', 'v4')
+    sheet_id = os.environ.get('SHEET_ID')
+    
+    result = sheets_service.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range='Content_Queue!A2:G100'
+    ).execute()
+    
+    rows = result.get('values', [])
+    for row in rows:
+        if len(row) >= 7 and row[6] == 'Approved':
+            return {
+                'Topic_ID': row[0],
+                'Topic_Bangla': row[1],
+                'Topic_English': row[2],
+                'Priority': row[3],
+                'Context_Notes': row[4],
+                'Inspiration_URLs': row[5]
+            }
+    return None
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+def load_configs_from_gcs():
+    """Load all config .md files from GCS"""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    configs = {}
+    
+    config_files = [
+        'writing_style_profile.md',
+        'editorial_preferences.md',
+        'visual_identity.md',
+        'source_priority.md',
+        'fact_check_protocols.md'
+    ]
+    
+    for filename in config_files:
+        blob = bucket.blob(f'bd-content/config/{filename}')
+        configs[filename] = blob.download_as_text()
+    
+    return configs
 
-      - name: Install Python dependencies
-        run: pip install gspread google-auth requests matplotlib pillow
+def run_research_stage(topic, configs):
+    """Call Gemini API with research prompt"""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    research_prompt_blob = bucket.blob('bd-content/prompts/research_prompt.md')
+    research_prompt = research_prompt_blob.download_as_text()
+    
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    
+    full_prompt = f"""{research_prompt}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+## TOPIC BRIEF
+{json.dumps(topic, indent=2)}
 
-      - name: Install Gemini CLI
-        run: npm install -g @google/gemini-cli
+## SOURCE PRIORITY
+{configs['source_priority.md']}
 
-      # ─── Get next topic ────────────────────────────────────
-      - name: Get next topic from Sheets
-        id: topic
-        run: |
-          TOPIC_JSON=$(python scripts/get_next_topic.py \
-            --force-id "${{ inputs.topic_id }}" \
-            ${{ env.DRY_RUN == 'true' && '--dry-run' || '' }})
-          echo "topic_id=$(echo $TOPIC_JSON | python -c 'import sys,json; print(json.load(sys.stdin)[\"Topic_ID\"])')" >> $GITHUB_OUTPUT
-          echo "topic_english=$(echo $TOPIC_JSON | python -c 'import sys,json; print(json.load(sys.stdin)[\"Topic_English\"])')" >> $GITHUB_OUTPUT
-          echo $TOPIC_JSON > topics/${{ steps.topic.outputs.topic_id }}.md
-          mkdir -p pipeline/${{ steps.topic.outputs.topic_id }}
+## EDITORIAL PREFERENCES
+{configs['editorial_preferences.md']}
 
-      - name: Set TOPIC_ID env var
-        run: echo "TOPIC_ID=${{ steps.topic.outputs.topic_id }}" >> $GITHUB_ENV
+Now research this topic and output JSON only.
+"""
+    
+    response = model.generate_content(full_prompt)
+    return response.text
 
-      # ─── Stage 1: Research ─────────────────────────────────
-      - name: Stage 1 - Research
-        run: |
-          gemini \
-            --model gemini-2.5-pro \
-            --prompt "$(cat prompts/01_research.md)" \
-            --file "config/source_priority.md" \
-            --file "config/editorial_preferences.md" \
-            --file "topics/${TOPIC_ID}.md" \
-            > pipeline/${TOPIC_ID}/research.md
+def run_write_stage(research_result, configs):
+    """Call Gemini with writer prompt"""
+    # Similar structure to run_research_stage
+    # Load writer_prompt.md, combine with configs, call Gemini
+    pass  # Implementation similar to above
 
-      - name: Gate 1 Check
-        run: python scripts/gate_check.py --file pipeline/${TOPIC_ID}/research.md --gate GATE_1
+def run_factcheck_stage(draft, research_result, configs):
+    """Call Gemini with factcheck prompt"""
+    pass  # Implementation similar
 
-      # ─── Stage 2: Write ────────────────────────────────────
-      - name: Stage 2 - Write Content
-        run: |
-          gemini \
-            --model gemini-2.5-pro \
-            --prompt "$(cat prompts/02_write.md)" \
-            --file "config/writing_style_profile.md" \
-            --file "pipeline/${TOPIC_ID}/research.md" \
-            > pipeline/${TOPIC_ID}/draft.md
+def run_stylecheck_stage(draft, configs):
+    """Call Gemini with stylecheck prompt"""
+    pass
 
-      # ─── Stage 3: Fact-Check ───────────────────────────────
-      - name: Stage 3 - Fact Check
-        run: |
-          gemini \
-            --model gemini-2.5-pro \
-            --prompt "$(cat prompts/03_factcheck.md)" \
-            --file "config/fact_check_protocols.md" \
-            --file "pipeline/${TOPIC_ID}/research.md" \
-            --file "pipeline/${TOPIC_ID}/draft.md" \
-            > pipeline/${TOPIC_ID}/factcheck.md
+def run_visual_stage(research_result, configs):
+    """Call Gemini to generate Matplotlib code"""
+    pass
 
-      - name: Gate 2 Check
-        id: gate2
-        run: python scripts/gate_check.py --file pipeline/${TOPIC_ID}/factcheck.md --gate GATE_2
+def execute_chart_code(topic_id, python_code):
+    """Execute Gemini-generated Python code to create PNG"""
+    # Save code to temp file, execute, capture output PNG
+    # Upload PNG to GCS at assets/[topic_id]_chart.png
+    pass
 
-      # ─── Stage 4: Style Check ──────────────────────────────
-      - name: Stage 4 - Style Check
-        run: |
-          gemini \
-            --model gemini-2.5-flash \
-            --prompt "$(cat prompts/04_stylecheck.md)" \
-            --file "config/writing_style_profile.md" \
-            --file "pipeline/${TOPIC_ID}/draft.md" \
-            > pipeline/${TOPIC_ID}/stylecheck.md
+def save_to_gcs(path, content):
+    """Save string content to GCS"""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(f'bd-content/{path}')
+    
+    if isinstance(content, dict):
+        content = json.dumps(content, indent=2)
+    
+    blob.upload_from_string(content)
 
-      - name: Gate 3 Check
-        id: gate3
-        run: python scripts/gate_check.py --file pipeline/${TOPIC_ID}/stylecheck.md --gate GATE_3
+def send_review_notification(topic_id):
+    """Send Gmail with review package"""
+    gmail_service = build('gmail', 'v1')
+    
+    message = f"""
+Subject: [BD Content] Topic {topic_id} Ready for Review
 
-      # ─── Stage 5: Visual ───────────────────────────────────
-      - name: Stage 5 - Generate Chart Code
-        run: |
-          gemini \
-            --model gemini-2.5-pro \
-            --prompt "$(cat prompts/05_visual.md)" \
-            --file "config/visual_identity.md" \
-            --file "pipeline/${TOPIC_ID}/research.md" \
-            > pipeline/${TOPIC_ID}/visual_report.md
-          # Extract Python code block from visual_report.md
-          python scripts/run_visual.py --topic-id ${TOPIC_ID}
+Topic {topic_id} has passed all quality gates and is ready for your review.
 
-      - name: Gate 4 Check
-        run: |
-          [ -f "pipeline/${TOPIC_ID}/instagram.png" ] || (echo "Instagram PNG not found" && exit 1)
-          python scripts/gate_check.py --file pipeline/${TOPIC_ID}/visual_report.md --gate GATE_4
+View outputs:
+https://console.cloud.google.com/storage/browser/[BUCKET]/bd-content/pipeline/{topic_id}
 
-      # ─── Commit pipeline outputs ───────────────────────────
-      - name: Commit pipeline outputs to repo
-        run: |
-          git config user.email "pipeline-bot@bd-content"
-          git config user.name "BD Pipeline Bot"
-          git add pipeline/${TOPIC_ID}/
-          git add topics/${TOPIC_ID}.md
-          git diff --staged --quiet || git commit -m "Pipeline run: ${TOPIC_ID} $(date +%Y-%m-%d)"
-          git push
+Reply with:
+- APPROVE: Will publish to Instagram
+- REJECT: Will archive without publishing
+- REVISE [notes]: Will flag for manual editing
 
-      # ─── Notify human ──────────────────────────────────────
-      - name: Send Slack review notification
-        run: |
-          python scripts/notify_slack.py \
-            --topic-id ${TOPIC_ID} \
-            ${{ env.DRY_RUN == 'true' && '--dry-run' || '' }}
+Pipeline Bot
+"""
+    
+    # Send via Gmail API
+    pass
 
-      # ─── Error handling ────────────────────────────────────
-      - name: Handle pipeline failure
-        if: failure()
-        run: |
-          python scripts/update_sheets.py --topic-id ${TOPIC_ID} --status Failed
-          curl -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            --data "{\"channel\":\"$SLACK_ERRORS_CHANNEL_ID\",\"text\":\"❌ Pipeline failed for ${TOPIC_ID}. Check Actions: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
-            https://slack.com/api/chat.postMessage
+def update_sheets_status(topic_id, status):
+    """Update Content_Queue status column"""
+    sheets_service = build('sheets', 'v4')
+    # Find row with topic_id, update column G
+    pass
+
+# Add more helper functions as needed
 ```
 
-- [ ] **4.1.2** Commit workflow file
+**Action:**
+1. Create `functions/main_pipeline/main.py` locally
+2. Create `functions/main_pipeline/requirements.txt`:
+   ```
+   functions-framework==3.*
+   google-cloud-storage
+   google-api-python-client
+   google-generativeai
+   ```
+3. Test locally (optional):
+   ```bash
+   cd functions/main_pipeline
+   pip install -r requirements.txt
+   functions-framework --target=run_pipeline --debug
+   ```
+4. Deploy to Cloud Functions:
+   ```bash
+   gcloud functions deploy content-pipeline \
+     --gen2 \
+     --runtime=python311 \
+     --region=asia-southeast1 \
+     --source=functions/main_pipeline \
+     --entry-point=run_pipeline \
+     --trigger-http \
+     --allow-unauthenticated \
+     --set-env-vars GCS_BUCKET=[YOUR_BUCKET],GEMINI_API_KEY=[YOUR_KEY],SHEET_ID=[YOUR_SHEET_ID]
+   ```
 
-### 4.2 Topic Suggester: `.github/workflows/topic-suggester.yml`
-
-- [ ] **4.2.1** Create a simpler workflow that runs every Monday morning:
-  - Runs Gemini CLI with a topic-generation prompt
-  - Reads `config/editorial_preferences.md` + recent Bangladesh news (Gemini CLI browses web)
-  - Outputs `Topic_Suggestions` sheet rows
-  - Commits the suggestion file to `pipeline/suggestions/week-{N}.md`
-  - Posts suggestions to Slack for your review
-
-### 4.3 Approval Webhook Handler
-The Slack approval buttons need a URL to send to. Options (pick one):
-
-- [ ] **4.3.1** **Option A (Simpler):** Use a GitHub Actions `workflow_dispatch` as the approval mechanism. Instead of Slack buttons, the Slack message contains a link to manually trigger the publish workflow in GitHub. You click the link → GitHub shows a form → you click Run. No webhook server needed.
-
-- [ ] **4.3.2** **Option B (Smoother UX):** Use a free Cloudflare Worker (free tier: 100k req/day) as the webhook receiver. The worker receives the Slack button click and triggers the GitHub Actions API to run the publish workflow. Write the worker code by asking Gemini CLI: `gemini -p "Write a Cloudflare Worker that receives a Slack interactive component webhook, validates the token, and triggers a GitHub Actions workflow_dispatch via the GitHub API"`
-
-**Recommendation for MVP:** Start with Option A (GitHub Actions manual trigger). Upgrade to Option B in Month 2.
-
-### 4.4 Health Check: `.github/workflows/health-check.yml`
-
-- [ ] **4.4.1** Simple daily workflow:
-  - Pings Gemini API with a 1-token request
-  - Pings Instagram API to check token validity
-  - Checks Google Sheets is accessible
-  - Posts summary to Slack errors channel if anything fails
-
-**Phase 4 Total: ~3 hours**
-
----
-
-## PHASE 5 — End-to-End Testing (6 hours)
-
-### 5.1 Local Testing First
-- [ ] **5.1.1** Create a test topic file: `topics/T001.md` with your education budget topic
-- [ ] **5.1.2** Run Stage 1 locally:
-  ```bash
-  gemini --model gemini-2.5-pro \
-    --prompt "$(cat prompts/01_research.md)" \
-    --file config/source_priority.md \
-    --file config/editorial_preferences.md \
-    --file topics/T001.md \
-    > pipeline/T001/research.md
-  ```
-- [ ] **5.1.3** Review `pipeline/T001/research.md` — are sources correct? Data points cited?
-- [ ] **5.1.4** Repeat for Stages 2-5 locally, reviewing output at each stage
-- [ ] **5.1.5** Fix prompt files based on what's wrong before touching GitHub Actions
-
-### 5.2 GitHub Actions Dry Run
-- [ ] **5.2.1** Push all files to GitHub
-- [ ] **5.2.2** Go to Actions → Content Pipeline → Run workflow → enter T001, dry_run = true
-- [ ] **5.2.3** Watch each step in real time — identify failures
-- [ ] **5.2.4** Check that Slack notification arrives with content package
-- [ ] **5.2.5** Click "Approve" (or the GitHub link equivalent) → verify no Instagram post goes out (dry run)
-
-### 5.3 Quality Assessment Checklist
-For each test topic, evaluate:
-- [ ] **5.3.1** Research: Are all data points from Tier 1/2 sources? Do URLs actually exist?
-- [ ] **5.3.2** Content: Does the draft sound like your writing style? Is the Bangla natural?
-- [ ] **5.3.3** Fact-check: Are the verifications making sense, or is Gemini hallucinating?
-- [ ] **5.3.4** Visual: Is the chart readable? On-brand? Honest (no misleading axes)?
-- [ ] **5.3.5** Overall: Would you publish this without changes?
-
-### 5.4 Prompt Iteration
-- [ ] **5.4.1** Edit prompt files based on issues found (not code — just the `.md` prompts)
-- [ ] **5.4.2** Re-run locally for fast iteration
-- [ ] **5.4.3** Target: 3 topics with ≥70% of content approvable as-is
-- [ ] **5.4.4** Run 3 full topics through GitHub Actions dry-run
-
-### 5.5 First Live Posts
-- [ ] **5.5.1** Run workflow with `dry_run = false` for 1 topic
-- [ ] **5.5.2** Review Slack package → click Approve
-- [ ] **5.5.3** Verify post on Instagram
-- [ ] **5.5.4** Verify Published_Log updated in Sheets
-- [ ] **5.5.5** Celebrate 🎉
-
-**Phase 5 Total: ~6 hours**
+**Validation:**
+- [ ] Function deploys successfully
+- [ ] Can trigger via Cloud Console
+- [ ] Logs show execution steps
 
 ---
 
-## 📊 Phase Summary
+#### 3.2 Publish Function (30 min)
 
-| Phase | What You Do | What Gemini Does | Hours |
-|---|---|---|---|
-| 0 | Set up GitHub, Slack, Sheets, Instagram API accounts | — | 2.5 hrs |
-| 1 | Write 5 config Markdown files (your brand's DNA) | — | 4 hrs |
-| 2 | Write 5 prompt Markdown files (agent instructions) | — | 3 hrs |
-| 3 | Write 5 Gemini CLI prompts asking for scripts | Writes all 5 Python helper scripts | 2 hrs |
-| 4 | Write GitHub Actions YAML workflows | — | 3 hrs |
-| 5 | Test, review output quality, tune prompts, first post | Researches, writes, fact-checks, makes charts | 6 hrs |
-| **TOTAL** | | | **~20.5 hours** |
+**Location:** Create `functions/publish/main.py`
 
-> **Reduction from v2 (39 hrs) → v3 (20.5 hrs).** The ~18.5 hours saved comes from eliminating Docker, Cloud Run, Cloud Scheduler, manual Python agent code, and MCP server setup.
+**Purpose:** Post approved content to Instagram
+
+**Action:**
+1. Create function that reads final package from GCS
+2. Posts to Instagram Graph API
+3. Updates Published_Log in Sheets
+4. Archives content to `published/` folder in GCS
 
 ---
 
-## 💰 Cost Breakdown
+### PHASE 4: Cloud Scheduler (30 min)
 
-| Service | Monthly Cost | Notes |
-|---|---|---|
-| Gemini API (work) | **$0** | Enterprise access via work |
-| GitHub (personal repo) | **$0** | Private repos free; Actions 2,000 min/month free |
-| Slack | **$0** | Free tier (10k message history limit) |
-| Google Sheets/Drive | **$0** | Existing Workspace |
-| Instagram API | **$0** | Free |
-| Cloudflare Workers (optional) | **$0** | 100k requests/day free tier |
-| **TOTAL** | **$0/month** | |
+**Task:** Set up daily trigger for pipeline
 
-> If you add Claude API for writing quality upgrade: ~$15-20/month. Optional, not required for MVP.
+**Steps:**
+1. Go to Cloud Console → Cloud Scheduler
+2. Create job:
+   - Name: `daily-content-pipeline`
+   - Frequency: `0 9 * * 1-6` (9am Mon-Sat, Bangladesh time)
+   - Target: HTTP
+   - URL: [Your Cloud Function URL from step 3.1]
+   - Method: POST
+3. Test: Click "Run Now"
 
----
-
-## ⚠️ Known Constraints & Workarounds
-
-| Constraint | Impact | Workaround |
-|---|---|---|
-| Gemini CLI cannot scrape JS-heavy pages (BBS portal uses JS tables) | Research agent may miss some BBS data | Prompt Gemini to try multiple URL patterns + fallback to World Bank mirror data |
-| GitHub Actions free tier: 2,000 min/month | Each pipeline run ≈ 20-30 min → ~66 runs/month before limits | Well within limits for 1/day target; upgrade to Pro ($4/mo) if scaling past 5/day |
-| Instagram token expires every 60 days | Pipeline breaks if not refreshed | Health check workflow alerts 10 days before expiry |
-| No GCP Secret Manager | Secrets in GitHub Secrets only | GitHub Secrets is fine; cannot be read from Actions logs; encrypted at rest |
-| Slack approval = GitHub link (not button) in MVP | Slightly less smooth UX | Acceptable for MVP; add Cloudflare Worker in Month 2 for true button approval |
+**Validation:**
+- [ ] Job created
+- [ ] Test run triggers function
+- [ ] Logs show execution
 
 ---
 
-## 📅 Execution Schedule
+### PHASE 5: Testing (2-3 hours)
 
-| Day | Morning (2 hrs) | Afternoon (2 hrs) | Evening (1 hr) |
-|---|---|---|---|
-| 1 | Phase 0: GitHub repo + Secrets setup | Phase 0: Slack + Sheets + Instagram API | Phase 1: Start writing_style_profile.md |
-| 2 | Phase 1: Complete all 5 config files | Phase 2: Write prompts 01 + 02 | Phase 2: Write prompts 03 + 04 |
-| 3 | Phase 2: Write prompt 05 | Phase 3: Generate all scripts via Gemini CLI | Review + commit scripts |
-| 4 | Phase 4: Write content-pipeline.yml | Phase 4: Write topic-suggester + health-check | First commit + test trigger |
-| 5 | Phase 5: Local Gemini CLI tests (3 topics) | Phase 5: Fix prompt files based on output | Phase 5: GitHub Actions dry run |
-| 6 | Phase 5: Quality review + prompt tuning | Phase 5: GitHub Actions dry run (2 more) | First live post 🎉 |
+#### 5.1 End-to-End Test (90 min)
 
-**Goal: First real post live on Instagram within 6 days.**
+**Steps:**
+1. Add test topic to Google Sheets (Status: Approved)
+2. Manually trigger Cloud Scheduler job
+3. Monitor Cloud Function logs in real-time
+4. Check GCS bucket for outputs at each stage
+5. Review quality of generated content
+6. Check if Gmail notification received
+
+#### 5.2 Quality Review (60 min)
+
+For the test topic, evaluate:
+- Research: Correct sources? Data accurate?
+- Content: Matches your style? Bangla-English ratio correct?
+- Fact-check: All claims verified?
+- Visual: Chart looks good? On-brand?
+
+#### 5.3 Prompt Tuning (Variable)
+
+Based on test results:
+- Edit prompt .md files in GCS
+- Commit updated versions to GitHub
+- Re-run pipeline
+- Iterate until quality is acceptable (target: 70%+ approvable as-is)
+
+---
+
+## ✅ Definition of Done
+
+You'll know the MVP is complete when:
+
+- [ ] **Day 1 (Today):** GCS bucket structured, configs created, GitHub repo set up
+- [ ] **Day 2:** All 5 prompt files written, Cloud Functions code written
+- [ ] **Day 3:** Functions deployed, Cloud Scheduler configured, first test run
+- [ ] **Day 4:** Quality tuning, prompt iteration, second test run
+- [ ] **Day 5:** Third test run, approval workflow tested
+- [ ] **Day 6:** First real post published to Instagram 🎉
+
+---
+
+## 💰 Actual Cost Estimate
+
+| Service | Usage | Cost |
+|---------|-------|------|
+| Cloud Functions | 30 invocations/month × 2 min avg | $0 (within 2M free tier) |
+| Cloud Scheduler | 1 job, 30 triggers/month | $0 (within 3 jobs free) |
+| GCS Storage | ~5GB (pipeline outputs + assets) | $0.10/month |
+| Gemini API | 30 requests × ~100K tokens | $0 (via work) |
+| **TOTAL** | | **~$0.10/month** |
+
+---
+
+## 🚨 Security Considerations
+
+### What We're NOT Doing (Per Your Requirements)
+- ❌ No service account for 3rd party tools
+- ❌ No external workflow orchestrators (Zapier, n8n)
+- ❌ No credentials stored in GitHub
+- ❌ No SSH keys or API keys in code
+
+### What We ARE Doing
+- ✅ Instagram token in Cloud Function environment variables (encrypted)
+- ✅ Gemini API key in Cloud Function environment variables
+- ✅ Cloud Functions run in your company's GCP project (already secured)
+- ✅ GCS bucket access via default service account (no new credentials)
+- ✅ GitHub repo is private, only contains code (no secrets)
+
+---
+
+## 📊 Next Steps After MVP
+
+**Month 2 Improvements:**
+1. Add approval buttons via Cloud Functions webhook (instead of Gmail reply)
+2. Implement retry logic for failed stages
+3. Add weekly idea generator (separate Cloud Function)
+4. Create simple web dashboard (Cloud Run + Streamlit)
+
+**Month 3 Scaling:**
+1. Increase from 1 post/day to 3-5 posts/day
+2. Add Facebook, LinkedIn publishing
+3. Implement A/B testing for headlines
+4. Add engagement analytics tracking
+
+---
+
+## 🎯 Success Metrics (First 30 Days)
+
+| Metric | Target | How to Measure |
+|--------|--------|----------------|
+| Content Volume | 20-25 posts published | Count rows in Published_Log sheet |
+| Human Time | <15 min/day average | Track time spent reviewing |
+| Quality Pass Rate | 70%+ approved as-is | Approval rate from Published_Log |
+| Fact-Check Accuracy | 95%+ claims verified | Spot-check 10 random posts |
+| System Uptime | 95%+ (no missed days) | Count successful vs failed runs |
+| Cost | <$5 total | GCP billing |
+
+---
+
+**START NOW:** Begin with Phase 0, Task 0.1 (GCS Bucket Setup) - should take 20 minutes. You can complete the entire setup in 4-6 hours today if you work through it systematically.
+
+Good luck! 🚀

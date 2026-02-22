@@ -1,0 +1,14 @@
+   # Secrets
+   .env
+   service-account-key.json
+   
+   # Local testing
+   __pycache__/
+   *.pyc
+   .pytest_cache/
+   venv/
+   
+   # Pipeline outputs (these stay in GCS only)
+   pipeline/
+   published/
+   assets/
