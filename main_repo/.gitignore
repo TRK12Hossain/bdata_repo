@@ -1,14 +1,26 @@
-   # Secrets
-   .env
-   service-account-key.json
-   
-   # Local testing
-   __pycache__/
-   *.pyc
-   .pytest_cache/
-   venv/
-   
-   # Pipeline outputs (these stay in GCS only)
-   pipeline/
-   published/
-   assets/
+# Secrets
+.env
+service-account-key.json
+*.json.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+
+# Pipeline outputs (stay local / in GCS, not in Git)
+pipeline/
+published/
+assets/
+pipeline-data/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
