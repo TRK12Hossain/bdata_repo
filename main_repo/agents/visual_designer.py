@@ -1,221 +1,179 @@
 """
-Visual Designer Agent
-Reads the approved draft and research data, then generates a branded
-infographic as a 1080x1080 PNG using Matplotlib.
+Visual Designer — hybrid matplotlib + Pillow approach.
 
-Follows visual_identity.md rules exactly.
-Uses PythonExecutorTool to render the chart code it writes.
-Gate 4 validates the output (dimensions, file size, existence).
+Uses LiteLLM directly (no CrewAI wrapper) to generate chart code,
+then executes it via PythonExecutorTool.
+
+matplotlib  → chart data, English axis labels
+Pillow+Raqm → Bengali headline (Bangla Sangam MN system font)
+
+Gate 4 validates output: 1080x1080, PNG, <1MB.
 """
 import os
-from pathlib import Path
-from crewai import Agent, Task, LLM
-
+import re
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).parent.parent
+_TEMPLATE_PATH = _REPO_ROOT / "assets" / "chart_template.py"
+
+sys.path.insert(0, str(_REPO_ROOT))
 from tools.python_executor import PythonExecutorTool
 
 
-def _load_config(filename: str) -> str:
-    config_dir = Path(os.getenv("CONFIG_DIR", Path(__file__).parent.parent / "config"))
-    config_path = Path(config_dir) / filename
-    if config_path.exists():
-        return config_path.read_text(encoding="utf-8")
-    return f"[WARNING: Config file {filename} not found]"
+def _load_template() -> str:
+    return _TEMPLATE_PATH.read_text(encoding="utf-8") if _TEMPLATE_PATH.exists() else ""
 
 
-def _resolve_llm() -> LLM:
-    model = os.getenv("PRIMARY_MODEL", "gemini/gemini-2.5-pro")
+def _resolve_model_and_key() -> tuple[str, str]:
+    model = os.getenv("FAST_MODEL", os.getenv("PRIMARY_MODEL", "gemini/gemini-2.5-flash"))
     api_key = (
         os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if model.startswith("gemini/")
         else os.getenv("ANTHROPIC_API_KEY")
     )
-    return LLM(model=model, api_key=api_key, temperature=0.2, max_tokens=8192)
+    return model, api_key
 
 
-def build_visual_designer_agent() -> Agent:
-    visual_identity = _load_config("visual_identity.md")
-
-    return Agent(
-        role="Data Visualization Designer",
-        goal=(
-            "Generate a branded infographic PNG for Instagram (1080x1080) "
-            "that visually tells the data story from the approved draft. "
-            "The chart must be honest, readable on mobile, and comply with brand rules."
-        ),
-        backstory=f"""You are a data visualization expert who creates clean, honest,
-mobile-friendly infographics about Bangladesh. You write Python Matplotlib code to
-generate charts, then use the Execute Chart Code tool to render them.
-
-YOUR VISUAL IDENTITY RULES (follow exactly):
-{visual_identity}
-
-AVAILABLE FONTS ON THIS SYSTEM:
-- Bangla text: use fontfamily='Bangla MN' (verified working for Bengali Unicode)
-- English text: use fontfamily='DejaVu Sans' (matplotlib default, clean and reliable)
-- Numbers/data labels: use fontfamily='DejaVu Sans', fontweight='bold'
-
-CHART CODE TEMPLATE (always start from this structure):
-```python
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
-
-# Brand constants — do not change these
-BRAND = {{
-    'green':      '#006A4E',
-    'red':        '#F42A41',
-    'white':      '#FFFFFF',
-    'off_white':  '#F5F5F0',
-    'dark':       '#1A1A1A',
-    'gray':       '#6B7280',
-    'light_gray': '#E5E7EB',
-}}
-
-# Canvas: 1080x1080 at 100dpi
-fig = plt.figure(figsize=(10.8, 10.8), dpi=100)
-fig.patch.set_facecolor(BRAND['off_white'])
-
-# Chart axes — leave room for headline (top 25%) and footer (bottom 12%)
-ax = fig.add_axes([0.1, 0.18, 0.80, 0.58])
-ax.set_facecolor(BRAND['off_white'])
-
-# === YOUR CHART CODE HERE ===
-# (bars, lines, labels, etc.)
-
-# Headline — Bangla text at top
-fig.text(0.5, 0.90, 'HEADLINE IN BANGLA', ha='center', va='top',
-         fontsize=26, fontweight='bold', fontfamily='Bangla MN',
-         color=BRAND['dark'], wrap=True)
-
-# Optional sub-headline in English
-fig.text(0.5, 0.83, 'English sub-headline if needed', ha='center', va='top',
-         fontsize=14, fontfamily='DejaVu Sans', color=BRAND['gray'])
-
-# Source watermark — MANDATORY, always at bottom-left
-fig.text(0.04, 0.025, '📊 Source: SOURCE NAME', fontsize=11,
-         fontfamily='DejaVu Sans', color=BRAND['gray'], alpha=0.85)
-
-# Save — do NOT use bbox_inches='tight' (it changes dimensions from 1080x1080)
-output_path = 'REPLACE_WITH_ACTUAL_PATH'
-plt.savefig(output_path, dpi=100, bbox_inches=None,
-            facecolor=BRAND['off_white'], format='png')
-plt.close()
-print(f"Chart saved: {{output_path}}")
-```
-
-CHART TYPE SELECTION:
-- Comparing exactly 2 time periods → grouped or side-by-side bar chart
-- Trend over 4+ data points → line chart with marked data points
-- Single striking statistic → large centered number (no axes)
-- Multiple metrics across periods → horizontal grouped bar chart
-
-CRITICAL RULES:
-- Bar charts: y-axis ALWAYS starts at 0
-- Data labels: always show the value on each bar/point
-- Reference lines (UNESCO benchmarks etc.): use BRAND['red'] dashed line
-- Both periods same color (BRAND['green']) — never color-code periods differently
-- Minimum font size 12pt anywhere on the chart
-- Always print the output path as the last stdout line
-""",
-        tools=[PythonExecutorTool()],
-        llm=_resolve_llm(),
-        verbose=True,
-        max_iter=6,    # Allow retries if first render has errors
-        memory=False,
+def _call_llm(prompt: str) -> str:
+    """Call LiteLLM directly — no CrewAI overhead."""
+    import litellm
+    model, api_key = _resolve_model_and_key()
+    resp = litellm.completion(
+        model=model,
+        api_key=api_key,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=4096,
+        temperature=0.2,
     )
+    return resp.choices[0].message.content or ""
+
+
+def _extract_code(text: str) -> str:
+    """Pull the first Python code block from the LLM response."""
+    # Try ```python ... ``` first
+    m = re.search(r"```python\s*(.*?)```", text, re.DOTALL)
+    if m:
+        code = m.group(1).strip()
+        if code and not code.startswith("`"):
+            return code
+
+    # Try any generic fenced block (handles ``` without language tag)
+    m = re.search(r"```\s*(.*?)```", text, re.DOTALL)
+    if m:
+        code = m.group(1).strip()
+        # Drop leading language identifier line if LLM put it inside the fence
+        if code.startswith("python\n"):
+            code = code[7:]
+        if code and not code.startswith("`"):
+            return code
+
+    # Last resort: strip all leading/trailing fence lines from the raw text
+    lines = text.strip().splitlines()
+    while lines and lines[0].strip().startswith("`"):
+        lines.pop(0)
+    while lines and lines[-1].strip().startswith("`"):
+        lines.pop()
+    return "\n".join(lines).strip()
+
+
+def generate_visual(
+    approved_draft: str,
+    research_content: str,
+    topic_id: str,
+    output_path_ig: str,
+) -> dict:
+    """
+    Generate an infographic PNG for the given topic.
+    Returns dict with keys: passed, output_path, error (if any).
+    """
+    template = _load_template()
+
+    prompt = f"""You are a Python data visualisation expert. Generate chart code for a Bangladesh data infographic.
+
+APPROVED INSTAGRAM CAPTION (source of headline and data):
+{approved_draft}
+
+RESEARCH DATA (use these exact numbers):
+{research_content[:2500]}
+
+CHART TEMPLATE — copy this structure exactly and fill in the blanks:
+{template}
+
+INSTRUCTIONS:
+1. Read the caption above and extract the key data points and source name.
+2. Fill in "YOUR CHART CODE HERE" with a horizontal bar chart (or line chart if showing a trend).
+3. Set headline_raw to the FIRST LINE of the approved caption.
+4. Set source_text to a plain-text source name (no emoji).
+5. Set output_path to: {output_path_ig}
+6. Use ENGLISH for all matplotlib axis labels. Bengali goes only in headline_raw.
+7. Use BRAND['green'] for ALL bars. Use BRAND['red'] only for reference lines.
+8. Keep ax = fig.add_axes([0.18, 0.12, 0.74, 0.50]) unchanged.
+9. Do NOT use bbox_inches='tight'.
+
+Respond with ONLY the complete Python code, inside a ```python block."""
+
+    executor = PythonExecutorTool()
+
+    for attempt in range(3):
+        try:
+            print(f"[Visual] Generating code (attempt {attempt + 1}/3)...")
+            llm_response = _call_llm(prompt)
+            code = _extract_code(llm_response)
+
+            if not code or len(code) < 200 or code.startswith("`"):
+                print(f"[Visual] Code extraction failed ({len(code)} chars), retrying...")
+                continue
+
+            print(f"[Visual] Executing chart code ({len(code)} chars)...")
+            result = executor._run(code)
+
+            if "Chart saved:" in result or "saved" in result.lower():
+                print(f"[Visual] Execution succeeded: {result.strip()}")
+                return {"passed": True, "output_path": output_path_ig, "error": None}
+            else:
+                print(f"[Visual] Execution output unexpected: {result[:200]}")
+                # Give the code the benefit of the doubt — check if file exists
+                if Path(output_path_ig).exists():
+                    return {"passed": True, "output_path": output_path_ig, "error": None}
+                # Inject the error into the next prompt for self-correction
+                prompt += f"\n\nThe previous code produced this error — fix it:\n{result[:500]}"
+
+        except Exception as e:
+            print(f"[Visual] Attempt {attempt + 1} error: {e}")
+            if attempt == 2:
+                return {"passed": False, "output_path": output_path_ig, "error": str(e)}
+
+    return {"passed": False, "output_path": output_path_ig, "error": "Failed after 3 attempts"}
 
 
 def validate_visual_output(output_path: str) -> dict:
-    """
-    Gate 4: Automated brand compliance check.
-    Returns dict with passed=True/False and list of failures.
-    """
+    """Gate 4: check file exists, is PNG, ~1080x1080, <1MB."""
     from PIL import Image
-
     failures = []
     path = Path(output_path)
 
     if not path.exists():
         return {"passed": False, "failures": ["Output file does not exist"]}
 
-    # File size check
     size_kb = path.stat().st_size / 1024
     if size_kb > 1024:
-        failures.append(f"File size {size_kb:.0f}KB exceeds 1MB limit")
+        failures.append(f"File size {size_kb:.0f}KB exceeds 1MB")
 
-    # Image dimensions check
     try:
         img = Image.open(output_path)
         w, h = img.size
         if not (1070 <= w <= 1090 and 1070 <= h <= 1090):
             failures.append(f"Dimensions {w}x{h} — expected ~1080x1080")
         if img.format != "PNG":
-            failures.append(f"File format {img.format} — expected PNG")
+            failures.append(f"Format {img.format} — expected PNG")
     except Exception as e:
         failures.append(f"Cannot open image: {e}")
+        w, h = 0, 0
 
     return {
         "passed": len(failures) == 0,
         "failures": failures,
         "size_kb": size_kb,
-        "dimensions": f"{w}x{h}" if "w" in dir() else "unknown",
+        "dimensions": f"{w}x{h}",
     }
-
-
-def build_visual_designer_task(
-    designer: Agent,
-    approved_draft: str,
-    research_content: str,
-    topic_id: str,
-    output_path_ig: str,
-) -> Task:
-    return Task(
-        description=f"""
-Create a branded infographic for topic {topic_id}.
-
-APPROVED INSTAGRAM CAPTION (use this for headline and data):
-====================================================================
-{approved_draft}
-====================================================================
-
-RESEARCH DATA (for exact numbers and source attribution):
-====================================================================
-{research_content}
-====================================================================
-
-YOUR TASK:
-1. Read the approved caption above
-2. Extract the key data points (the numbers, time periods, and source)
-3. Identify the best chart type:
-   - If the caption compares 2 time periods → bar chart (side by side)
-   - If the caption shows a trend → line chart
-   - If the caption has one big stat → large number layout
-4. Write complete Python Matplotlib code following the template in your guide
-5. Set the headline to the FIRST LINE of the approved caption (in Bangla)
-6. Execute the code using the 'Execute Chart Code' tool
-7. If it fails, read the error, fix the code, and try again (up to 3 times)
-8. Confirm the file was saved successfully
-
-OUTPUT FILE PATH (use this exact path):
-{output_path_ig}
-
-CHECKLIST before running the code:
-- [ ] Y-axis starts at 0 (for bar charts)
-- [ ] Data labels visible on every bar/point
-- [ ] Source watermark at bottom-left with 📊
-- [ ] Headline is the first line of the approved caption
-- [ ] Output saved to: {output_path_ig}
-- [ ] plt.savefig uses bbox_inches=None (NOT 'tight') so dimensions stay exactly 1080x1080
-- [ ] plt.close() called after savefig
-- [ ] print(f"Chart saved: {{output_path}}") is the last line
-
-After successful execution, confirm:
-"Visual saved to {output_path_ig}"
-""",
-        expected_output=f"Infographic PNG saved to {output_path_ig} and confirmed with Gate 4 check",
-        agent=designer,
-    )

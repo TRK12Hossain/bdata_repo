@@ -16,7 +16,7 @@ from .researcher import build_researcher_agent, build_research_task
 from .writer import build_writer_agent, build_writer_task
 from .fact_checker import build_fact_checker_agent, build_fact_check_task
 from .style_checker import build_style_checker_agent, build_style_check_task
-from .visual_designer import build_visual_designer_agent, build_visual_designer_task, validate_visual_output
+from .visual_designer import generate_visual, validate_visual_output
 
 
 def _now() -> str:
@@ -220,23 +220,20 @@ def run_full_pipeline(
         return results
 
     # ── STAGE 5: VISUAL DESIGNER ─────────────────────────────────────────────
+    import time; time.sleep(8)  # brief pause — avoid Gemini rate limit after 4 prior calls
     print(f"\n[Pipeline] Stage 5/5: Visual Designer Agent starting...")
 
     # Extract the approved Instagram caption from the style-check report
     approved_caption = _extract_approved_caption(style_check_content)
 
     try:
-        designer = build_visual_designer_agent()
-        visual_task = build_visual_designer_task(
-            designer=designer,
+        gen = generate_visual(
             approved_draft=approved_caption,
             research_content=research_content,
             topic_id=topic_id,
             output_path_ig=paths["visual_ig"],
         )
-        _run_single_agent_crew(designer, visual_task)
 
-        # Gate 4: validate the output PNG
         gate4 = validate_visual_output(paths["visual_ig"])
         if gate4["passed"]:
             results["stages"]["visual"] = "completed"
@@ -246,7 +243,7 @@ def run_full_pipeline(
             results["stages"]["visual"] = f"gate4_failed: {gate4['failures']}"
             results["final_status"] = "blocked_at_gate4"
             results["error"] = f"Gate 4 failed: {gate4['failures']}"
-            print(f"[Pipeline] ⚠️  Gate 4 failed: {gate4['failures']}")
+            print(f"[Pipeline] Gate 4 failed: {gate4['failures']}")
 
     except Exception as e:
         results["stages"]["visual"] = f"failed: {e}"
