@@ -43,7 +43,7 @@ def _call_llm(prompt: str) -> str:
         model=model,
         api_key=api_key,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=4096,
+        max_tokens=8192,
         temperature=0.2,
     )
     return resp.choices[0].message.content or ""
@@ -95,7 +95,7 @@ APPROVED INSTAGRAM CAPTION (source of headline and data):
 {approved_draft}
 
 RESEARCH DATA (use these exact numbers):
-{research_content[:2500]}
+{research_content[:1500]}
 
 CHART TEMPLATE — copy this structure exactly and fill in the blanks:
 {template}
